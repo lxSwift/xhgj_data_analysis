@@ -64,11 +64,25 @@
             <version>1.0.4</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.twitter</groupId>
+            <artifactId>chill_2.13</artifactId>
+            <version>0.10.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+            <version>1.2.36</version>
+        </dependency>
+
     </dependencies>
 
     <build>
         <outputDirectory>target/classes</outputDirectory>
         <testOutputDirectory>target/test-classes</testOutputDirectory>
+        <!-- Maven 打包的包名 -->
+        <finalName>test-1.0.0</finalName>
         <resources>
             <resource>
                 <directory>${project.basedir}/src/main/resources</directory>
