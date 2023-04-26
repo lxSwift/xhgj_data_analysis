@@ -54,4 +54,31 @@ object JsonParse {
     }
      arrb.toArray
   }
+
+/**
+ *@Description: 解析费用类型json数据
+ *@Param: [jsonstr]
+ *@Return: void
+ *@DateTime: 16:36 2023/4/25
+ */
+  def feeTypes(jsonstr:String) = {
+    //将{}的字符串解析成json
+    val jsonOBJ: JSONObject = JSON.parseObject(jsonstr)
+    //获取items下面的jsonobj数组(示例中有十个单位)
+    val itemsJsonOBJArray: JSONArray = jsonOBJ.getJSONArray("items")
+    val len = itemsJsonOBJArray.length
+    println("len==="+len)
+    val arrb = new ArrayBuffer[(String, String, String, String, String)]()
+    for (i <- 0 until len ){
+      val itJsonOBJ = itemsJsonOBJArray.getJSONObject(i)
+      val id = itJsonOBJ.getString("id")
+      val name = itJsonOBJ.getString("name")
+      val parentId = itJsonOBJ.getString("parentId")
+      val active = itJsonOBJ.getString("active")
+      val code = itJsonOBJ.getString("code")
+      arrb.append((id,name,parentId,active,code))
+    }
+    arrb.toArray
+
+  }
 }

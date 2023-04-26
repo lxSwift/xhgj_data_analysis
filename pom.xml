@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.example</groupId>
-    <artifactId>test</artifactId>
+    <artifactId>data_analysis_xh</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
@@ -47,11 +47,11 @@
         <version>${hadoop.version}</version>
     </dependency>
 
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>1.7.21</version>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>org.slf4j</groupId>-->
+<!--            <artifactId>slf4j-api</artifactId>-->
+<!--            <version>1.7.21</version>-->
+<!--        </dependency>-->
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-hive_2.13</artifactId>
@@ -76,13 +76,19 @@
             <version>1.2.36</version>
         </dependency>
 
+        <dependency>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+
     </dependencies>
 
     <build>
         <outputDirectory>target/classes</outputDirectory>
         <testOutputDirectory>target/test-classes</testOutputDirectory>
         <!-- Maven 打包的包名 -->
-        <finalName>test-1.0.0</finalName>
+        <finalName>data_analysis_xh-1.0</finalName>
         <resources>
             <resource>
                 <directory>${project.basedir}/src/main/resources</directory>

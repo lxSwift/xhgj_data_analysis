@@ -35,9 +35,7 @@ object ceshi {
   }
 
   def runRES(spark: SparkSession, params: Params):DataFrame = {
-
     import spark.implicits._
-
     val result: DataFrame = spark.sql(
       s"""
          |SELECT
