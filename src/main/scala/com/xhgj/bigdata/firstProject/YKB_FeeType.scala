@@ -15,7 +15,7 @@ object YKB_FeeType {
       StructField("active", StringType, nullable = true),
       StructField("code", StringType, nullable = true)
     ))
-    val spark = SparkSession.builder().appName("Spark Hive Demo").enableHiveSupport().getOrCreate()
+    val spark = SparkSession.builder().appName("Spark Hive YKBDATA_FEETYPE").enableHiveSupport().getOrCreate()
     val sc = spark.sparkContext
     //val userDF =spark.read.json("file:///D:/response.json")
 
@@ -24,7 +24,6 @@ object YKB_FeeType {
     val res = sc.parallelize(JsonParse.feeTypes(lines))
     val resRDD = res.map(tup => Row(tup._1,tup._2,tup._3,tup._4,tup._5))
     val resDF: DataFrame = spark.createDataFrame(resRDD,schema)
-    resDF.show()
     run(resDF,spark)
     sc.stop()
     spark.stop()

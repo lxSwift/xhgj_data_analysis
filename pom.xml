@@ -88,7 +88,7 @@
         <outputDirectory>target/classes</outputDirectory>
         <testOutputDirectory>target/test-classes</testOutputDirectory>
         <!-- Maven 打包的包名 -->
-        <finalName>data_analysis_xh-1.0</finalName>
+        <finalName>data_analysis_xh_ceshi-1.0</finalName>
         <resources>
             <resource>
                 <directory>${project.basedir}/src/main/resources</directory>

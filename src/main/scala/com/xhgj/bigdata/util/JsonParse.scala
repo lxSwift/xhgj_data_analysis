@@ -17,7 +17,7 @@ import scala.io.Source
 object JsonParse {
 
   def main(args: Array[String]): Unit = {
-    val lines: String = Source.fromFile("D:\\response2.json").mkString
+    val lines: String = Source.fromFile("D:\\result.json").mkString
     amount(lines)
   }
 
@@ -67,7 +67,6 @@ object JsonParse {
     //获取items下面的jsonobj数组(示例中有十个单位)
     val itemsJsonOBJArray: JSONArray = jsonOBJ.getJSONArray("items")
     val len = itemsJsonOBJArray.length
-    println("len==="+len)
     val arrb = new ArrayBuffer[(String, String, String, String, String)]()
     for (i <- 0 until len ){
       val itJsonOBJ = itemsJsonOBJArray.getJSONObject(i)
