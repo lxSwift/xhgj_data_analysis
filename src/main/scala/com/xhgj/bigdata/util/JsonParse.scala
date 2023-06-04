@@ -1,11 +1,9 @@
 package com.xhgj.bigdata.util
 
 import com.alibaba.fastjson.{JSON, JSONArray, JSONObject}
-import org.apache.commons.collections.iterators.ArrayListIterator
 
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.convert.ImplicitConversions.`list asScalaBuffer`
-import scala.collection.immutable
 import scala.io.Source
 
 /**
@@ -18,7 +16,10 @@ object JsonParse {
 
   def main(args: Array[String]): Unit = {
     val lines: String = Source.fromFile("D:\\result.json").mkString
-    amount(lines)
+    amount_m(lines)
+  }
+  def amount_m(jsonstr:String)={
+    println()
   }
 
 /**
@@ -27,7 +28,7 @@ object JsonParse {
  *@Return: scala.Tuple3<java.lang.String,java.lang.String,java.lang.String>[]
  *@DateTime: 13:57 2023/4/25
  */
-  def amount(jsonstr:String) = {
+  def mian(jsonstr:String) = {
     //将{}的字符串解析成json
     val jsonOBJ: JSONObject = JSON.parseObject(jsonstr)
     //获取items下面的jsonobj数组(示例中有十个单位)
@@ -40,19 +41,19 @@ object JsonParse {
       //获取form结果字符串
       val obj1: String = firstjsonOBJ.getString("form")
       val formjsonOBJ = JSON.parseObject(obj1)
-      val titile = formjsonOBJ.getString("title")
-      val detailsOBJArray = formjsonOBJ.getJSONArray("details")
-      val ffjsonOBJ = detailsOBJArray.getJSONObject(0)
-      val feeTypeFormStr = ffjsonOBJ.getString("feeTypeForm")
-      val feeTypeFormOBJ = JSON.parseObject(feeTypeFormStr)
-      val amountStr = feeTypeFormOBJ.getString("amount")
-      val amountOBJ = JSON.parseObject(amountStr)
-      val standard = amountOBJ.getString("standard")
-      val standardUnit = amountOBJ.getString("standardUnit")
-      arrb.append((titile,standard,standardUnit))
-      println("titile=" + arrb(i))
+      val code = formjsonOBJ.getString("code")
+//      val detailsOBJArray = formjsonOBJ.getJSONArray("details")
+//      val ffjsonOBJ = detailsOBJArray.getJSONObject(0)
+//      val feeTypeFormStr = ffjsonOBJ.getString("feeTypeForm")
+//      val feeTypeFormOBJ = JSON.parseObject(feeTypeFormStr)
+//      val amountStr = feeTypeFormOBJ.getString("amount")
+//      val amountOBJ = JSON.parseObject(amountStr)
+//      val standard = amountOBJ.getString("standard")
+//      val standardUnit = amountOBJ.getString("standardUnit")
+//      arrb.append((code,standard,standardUnit))
+      println("code=" + code)
     }
-     arrb.toArray
+//     arrb.toArray
   }
 
 /**

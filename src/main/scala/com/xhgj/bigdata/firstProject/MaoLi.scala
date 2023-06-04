@@ -13,7 +13,11 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
  */
 object MaoLi {
   def main(args: Array[String]): Unit = {
-    val spark = SparkSession.builder().appName("Spark task job MaoLi.scala").enableHiveSupport().getOrCreate()
+    val spark = SparkSession
+      .builder()
+      .appName("Spark task job MaoLi.scala")
+      .enableHiveSupport()
+      .getOrCreate()
 
     runRES(spark)
     spark.stop()
@@ -120,7 +124,7 @@ spark.sql(
         |join t_Bd_Material_l t4_L on t4_L.fmaterialid=t4.fmaterialid
         |join ${TableName.T_BD_MATERIALGROUP} t4_Group on t4_Group.Fid=t4.FMATERIALGROUP
         |left join ${TableName.PAEZ_T_CUST_ENTRY100020} t4_Brand on t4_Brand.Fid=t4.F_PAEZ_BASE
-        |left join ${TableName.Paez_t_Cust_Entry100020_l} t4_Brand_L on t4_Brand_L.Fid=t4.F_PAEZ_BASE
+        |left join ${TableName.Paez_t_Cust_Entry100020_l} t4_B rand_L on t4_Brand_L.Fid=t4.F_PAEZ_BASE
         |left join ${TableName.PAEZ_t_Cust_Entry100002_L} t4_Brand_Type_L on t4_Brand_Type_L.Fid=t4_Brand.f_Pxdf_Base
         |join ${TableName.T_ORG_ORGANIZATIONS} t6 on t6.Forgid=a.Fpayorgid
         |join ${TableName.T_ORG_ORGANIZATIONS_L} t6_L on t6_L.Forgid=t6.Forgid
@@ -160,7 +164,7 @@ spark.sql(
         |(NOTAXCOSTAMOUNT *(1+SALETAX))/(if(nvl(COSTQTY,0) == 0,1 ,COSTQTY)) as TAXCOSTPRICE,
         |NoTaxCostAmount,
         |NOTAXCOSTAMOUNT *(1+SALETAX) TAXCOSTAMOUNT,
-        |TAXSALEAMOUNT - NoTaxCostAmount as NOTAXGROSS,
+        |(TAXSALEAMOUNT/(1+SALETAX)) - NoTaxCostAmount as NOTAXGROSS,
         |DeliveryTime
         |from
         |result_ball
@@ -183,17 +187,17 @@ spark.sql(
         |NVL(MATERIALGROUP,''),
         |SaleQty,
         |CAST(SALETAX AS decimal(6,2)),
-        |CAST(NOTAXSALEPRICE AS decimal(23,2)) NOTAXSALEPRICE,
-        |CAST(TAXSALEPRICE AS decimal(23,2)) TAXSALEPRICE,
-        |CAST(NOTAXSALEAMOUNT AS decimal(23,2)) NOTAXSALEAMOUNT,
-        |CAST(TAXSALEAMOUNT AS decimal(23,2)) TAXSALEAMOUNT,
+        |CAST(NOTAXSALEPRICE AS decimal(23,10)) NOTAXSALEPRICE,
+        |CAST(TAXSALEPRICE AS decimal(23,10)) TAXSALEPRICE,
+        |CAST(NOTAXSALEAMOUNT AS decimal(23,10)) NOTAXSALEAMOUNT,
+        |CAST(TAXSALEAMOUNT AS decimal(23,10)) TAXSALEAMOUNT,
         |CostQty,
         |CAST(CostTax AS decimal(6,2)),
-        |CAST(NOTAXCOSTPRICE AS decimal(23,2)) NOTAXCOSTPRICE,
-        |CAST(TAXCOSTPRICE AS decimal(23,2)) TAXCOSTPRICE,
-        |CAST(NoTaxCostAmount AS decimal(23,2)) NoTaxCostAmount,
-        |CAST(TAXCOSTAMOUNT AS decimal(23,2)) TAXCOSTAMOUNT,
-        |CAST(NOTAXGROSS AS decimal(23,2)) NOTAXGROSS,
+        |CAST(NOTAXCOSTPRICE AS decimal(23,10)) NOTAXCOSTPRICE,
+        |CAST(TAXCOSTPRICE AS decimal(23,10)) TAXCOSTPRICE,
+        |CAST(NoTaxCostAmount AS decimal(23,10)) NoTaxCostAmount,
+        |CAST(TAXCOSTAMOUNT AS decimal(23,10)) TAXCOSTAMOUNT,
+        |CAST(NOTAXGROSS AS decimal(23,10)) NOTAXGROSS,
         |NVL(DeliveryTime,'')
         |from
         |result
