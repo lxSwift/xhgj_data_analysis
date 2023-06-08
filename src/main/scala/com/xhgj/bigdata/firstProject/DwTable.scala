@@ -39,7 +39,8 @@ object DwTable {
         |oesf.FPRICE,
         |oesf.FTAXPRICE,
         |oesf.FAMOUNT,
-        |oesf.FALLAMOUNT
+        |oesf.FALLAMOUNT,
+        |OES.FMRPTERMINATESTATUS
         |from ${TableName.ODS_ERP_SALORDERENTRY} oes
         |left join ${TableName.ODS_ERP_SALORDERENTRY_F} oesf on oesf.fentryid = oes.fentryid
         |""".stripMargin)
@@ -69,7 +70,8 @@ object DwTable {
         |FMODIFYDATE,
         |F_PAEZ_TEXT13 AS FSALESCOMPANY,
         |F_PAEZ_TEXT14 AS FSALESDEPT,
-        |FPROJECTBASIC
+        |FPROJECTBASIC,
+        |FPURTYPE
         |from ${TableName.ODS_ERP_SALORDER}
         |""".stripMargin)
 

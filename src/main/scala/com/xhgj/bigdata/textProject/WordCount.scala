@@ -1,22 +1,16 @@
 package scala.com.xhgj.bigdata.textProject
 
+import com.xhgj.bigdata.util.Config
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.{SparkConf, SparkContext}
 object WordCount {
   def main(args: Array[String]): Unit = {
-//      val conf = new SparkConf().setAppName("wordCount")
-//      val sc = new SparkContext(conf)
-//
-//      val fileRdd = sc.textFile("/spark/sparkhistory/text.txt")
-//
-//      val wordsRdd = fileRdd.flatMap(line => line.split(" "))
-//
-//      val wordMapRdd = wordsRdd.map(word => (word, 1))
-//
-//      val countRdd = wordMapRdd.reduceByKey(_ + _)
-//
-//      countRdd.collect().foreach(println)\
-    args.foreach(println)
-    val sd: String = args(1)
-    println("sd ===" + sd)
+    val spark = SparkSession.builder().appName("Spark Hive Demo").enableHiveSupport().getOrCreate()
+    val sc = spark.sparkContext
+    //测试从配置文件读取值
+    val conf = Config.load("config.properties")
+    val outputPath: String = conf.getProperty("database.url")
+    val use = conf.getProperty("database.user")
+    val pass = conf.getProperty("database.password")
   }
 }
