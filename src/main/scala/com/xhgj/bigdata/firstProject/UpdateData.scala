@@ -1810,5 +1810,280 @@ object UpdateData {
          |where
          |rank = 1
          |""".stripMargin)
+
+    //ODS_ERP_OUTSTOCKENTRY_R表增量更新
+    spark.sql(
+      s"""
+         |SELECT
+         | *,
+         | row_number() over(partition by FENTRYID order by F_TIMESTAMP desc) rank
+         |FROM
+         |${TableName.ODS_ERP_OUTSTOCKENTRY_R}
+         |""".stripMargin).createOrReplaceTempView("OUTSTOCKENTRY_R")
+    spark.sql(
+      s"""
+         |insert overwrite table ${TableName.ODS_ERP_OUTSTOCKENTRY_R}
+         |select
+         |  FENTRYID,
+         |	FID,
+         |	FSRCTYPE,
+         |	FSRCBILLNO,
+         |	FJOINEDQTY,
+         |	FUNJOINQTY,
+         |	FJOINEDAMOUNT,
+         |	FUNJOINAMOUNT,
+         |	FFULLYJOINED,
+         |	FJOINSTATUS,
+         |	FRETURNQTY,
+         |	FBASERETURNQTY,
+         |	FSUMRETNOTICEQTY,
+         |	FSUMRETSTOCKQTY,
+         |	FINVOICEDQTY,
+         |	FBASEINVOICEDQTY,
+         |	FSUMINVOICEDQTY,
+         |	FSUMINVOICEDAMT,
+         |	FSUMRECIEVEDAMT,
+         |	FSOORDERNO,
+         |	FBASESUMRETNOTICEQTY,
+         |	FBASESUMRETSTOCKQTY,
+         |	FBASESUMINVOICEDQTY,
+         |	FBASEARJOINQTY,
+         |	FBASEARQTY,
+         |	FARJOINAMOUNT,
+         |	FARAMOUNT,
+         |	FBASEJOININSTOCKQTY,
+         |	FJOININSTOCKQTY,
+         |	FSECJOININSTOCKQTY,
+         |	FSECRETURNQTY,
+         |	FARJOINQTY,
+         |	FEOWNERSUPPLIERID,
+         |	FESETTLECUSTOMERID,
+         |	FSTOCKBASERETURNQTY,
+         |	FSTOCKBASESUMRETSTOCKQTY,
+         |	FSTOCKBASEARJOINQTY,
+         |	FSALBASEARJOINQTY,
+         |	FPURBASEJOININSTOCKQTY,
+         |	FARNOTJOINQTY,
+         |	FQMENTRYID,
+         |	FCONVERTENTRYID,
+         |	FB2CORDERDETAILID,
+         |	FSOENTRYID,
+         |	FRESERVEENTRYID,
+         |	FSIGNQTY,
+         |	FCHECKDELIVERY,
+         |	FGYFINSTATUS,
+         |	FTHIRDENTRYID,
+         |	FTHIRDBILLNO,
+         |	FTHIRDBILLID,
+         |	FGYFINDATE,
+         |	FWRITEOFFPRICEBASEQTY,
+         |	FWRITEOFFSALEBASEQTY,
+         |	FWRITEOFFSTOCKBASEQTY,
+         |	FWRITEOFFAMOUNT,
+         |	FBOMENTRYID,
+         |	F_TIMESTAMP
+         |FROM
+         |  OUTSTOCKENTRY_R
+         |where
+         |rank = 1
+         |""".stripMargin)
+
+    //ODS_ERP_PAYABLE应付单增量更新
+    spark.sql(
+      s"""
+         |SELECT
+         | *,
+         | row_number() over(partition by FID order by FMODIFYDATE desc) rank
+         |FROM
+         |${TableName.ODS_ERP_PAYABLE}
+         |""".stripMargin).createOrReplaceTempView("PAYABLE")
+    spark.sql(
+      s"""
+         |insert overwrite table ${TableName.ODS_ERP_PAYABLE}
+         |select
+         |  FID,
+         |	FBILLNO,
+         |	FBILLTYPEID,
+         |	FDATE,
+         |	FENDDATE,
+         |	FSETTLEORGID,
+         |	FPURCHASEORGID,
+         |	FCURRENCYID,
+         |	FSUPPLIERID,
+         |	FOWNERTYPE,
+         |	FOWNERID,
+         |	FACCOUNTSYSTEM,
+         |	FEXPENSEIV,
+         |	FALLAMOUNTFOR,
+         |	FBYVERIFY,
+         |	FOPENSTATUS,
+         |	FWRITTENOFFSTATUS,
+         |	FRELATEHADPAYAMOUNT,
+         |	FBUSINESSTYPE,
+         |	FDOCUMENTSTATUS,
+         |	FCREATORID,
+         |	FCREATEDATE,
+         |	FMODIFIERID,
+         |	FMODIFYDATE,
+         |	FISTAX,
+         |	FMOREFIELD,
+         |	FCANCELSTATUS,
+         |	FCANCELLERID,
+         |	FCANCELDATE,
+         |	FAPPROVERID,
+         |	FAPPROVEDATE,
+         |	FPAYCONDITON,
+         |	FPURCHASEDEPTID,
+         |	FPURCHASERGROUPID,
+         |	FPURCHASERID,
+         |	FSOURCEBILLTYPE,
+         |	FISINIT,
+         |	FINSTOCKBUSTYPE,
+         |	FMRBBUSTYPE,
+         |	FPAYORGID,
+         |	FISBYIV,
+         |	FISGENHSADJ,
+         |	FISTAXINCOST,
+         |	FMATCHMETHODID,
+         |	FISPRICEEXCLUDETAX,
+         |	FSETACCOUNTTYPE,
+         |	FISHOOKMATCH,
+         |	FISWRITEOFF,
+         |	FISINVOICEARLIER,
+         |	FREDBLUE,
+         |	FREMARK,
+         |	F_PAEZ_TEXT,
+         |	FBILLMATCHLOGID,
+         |	F_ISCREATEEASVOUCHER,
+         |	F_ORDERTYPE,
+         |	F_PXDF_TEXT1,
+         |	F_PXDF_DATE,
+         |	F_PXDF_PRINTTIMES,
+         |	F_PXDF_BASE1,
+         |	FFPLX,
+         |	FFPLX1,
+         |	FSYB,
+         |	F_PAEZ_PRINTDATETIME,
+         |	FXMGLPROJECTNO,
+         |	FPRESETBASE1,
+         |	FPRESETBASE2,
+         |	FPRESETASSISTANT1,
+         |	FPRESETASSISTANT2,
+         |	FPRESETTEXT1,
+         |	FPRESETTEXT2,
+         |	F_PAEZ_USERID,
+         |	FISGENERATEPLANBYCOSTITEM,
+         |	F_PAEZ_STOCKERID,
+         |	F_PAEZ_TEXT2
+         |FROM
+         |  PAYABLE
+         |where
+         |rank = 1
+         |""".stripMargin)
+
+    //ODS_ERP_PAYABLEENTRY表增量更新
+    spark.sql(
+      s"""
+         |SELECT
+         | *,
+         | row_number() over(partition by FENTRYID order by F_TIMESTAMP desc) rank
+         |FROM
+         |${TableName.ODS_ERP_PAYABLEENTRY}
+         |""".stripMargin).createOrReplaceTempView("PAYABLEENTRY")
+    spark.sql(
+      s"""
+         |insert overwrite table ${TableName.ODS_ERP_PAYABLEENTRY}
+         |select
+         |  FENTRYID,
+         |	FID,
+         |	FSEQ,
+         |	FSOURCETYPE,
+         |	FSOURCEBILLNO,
+         |	FSRCROWID,
+         |	FMATERIALID,
+         |	FCOSTID,
+         |	FPRICE,
+         |	FTAXPRICE,
+         |	FPRICECOEFFICIENT,
+         |	FPRICEUNITID,
+         |	FPRICEQTY,
+         |	FBASICUNITID,
+         |	FBASICUNITQTY,
+         |	FDISCOUNTAMOUNTFOR,
+         |	FENTRYDISCOUNTRATE,
+         |	FPRICEWITHTAX,
+         |	FENTRYTAXRATE,
+         |	FNOTAXAMOUNTFOR,
+         |	FTAXAMOUNTFOR,
+         |	FALLAMOUNTFOR,
+         |	FTAXAMOUNT,
+         |	FDISCOUNTAMOUNT,
+         |	FALLAMOUNT,
+         |	FNOTAXAMOUNT,
+         |	FBUYIVQTY,
+         |	FBUYIVBASICQTY,
+         |	FIVALLAMOUNTFOR,
+         |	FORDERNUMBER,
+         |	FOPENAMOUNTFOR,
+         |	FOPENAMOUNT,
+         |	FNOTOPENAMOUNTFOR,
+         |	FOPENQTY,
+         |	FNOTOPENQTY,
+         |	FOPENSTATUS,
+         |	FBASEJOINQTY,
+         |	FALLOCATESTATUS,
+         |	FHOOKSTATUS,
+         |	FPURCHASEORDERID,
+         |	FTAXCOMBINATION,
+         |	FINCLUDECOST,
+         |	FMATERIALDESC,
+         |	FTEMPTAXRATE,
+         |	FMATCHNOTTAXAMTFOR,
+         |	FHADMATCHAMOUNTFOR,
+         |	FSPECIALQTY,
+         |	FSPECIALAMOUNTFOR,
+         |	FMONUMBER,
+         |	FMOENTRYSEQ,
+         |	FOPNO,
+         |	FSEQNUMBER,
+         |	FOPERNUMBER,
+         |	FPROCESSID,
+         |	FFPRODEPARTMENTID,
+         |	FPAYMENTAMOUNT,
+         |	FORDERENTRYID,
+         |	FORDERENTRYSEQ,
+         |	FBUYIVINIQTY,
+         |	FBUYIVINIBASICQTY,
+         |	FIVINIALLAMOUNTFOR,
+         |	FCOMMENT,
+         |	FMATCHNOTTAXAMT,
+         |	FPUSHREDQTY,
+         |	F_PAEZ_BASE,
+         |	F_PXDF_TEXT,
+         |	F_PXDF_BASE,
+         |	F_PROJECTNO,
+         |	F_PXDF_BASE1,
+         |	F_PXDF_PRICE,
+         |	F_PXDF_PRICE1,
+         |	FBARCODE,
+         |	F_PAEZ_BASE1,
+         |	F_PAEZ_TEXT1,
+         |	F_PAEZ_DECIMAL,
+         |	F_PAEZ_QTY,
+         |	FNORECEIVEAMOUNT,
+         |	FNOINVOICEAMOUNT,
+         |	FNOINVOICEQTY,
+         |	FROOTSETACCOUNTTYPE,
+         |	FROOTSOURCETYPE,
+         |	F_PAEZ_TEXT2,
+         |	F_PAEZ_FLEX,
+         |	F_TIMESTAMP
+         |FROM
+         |  PAYABLEENTRY
+         |where
+         |rank = 1
+         |""".stripMargin)
+
+
   }
 }

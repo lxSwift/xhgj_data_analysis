@@ -8,8 +8,8 @@ import java.util.Properties
  * 用于获取配置文件的内容
  */
 object Config {
-  val configPath = System.getProperty("configPath",Thread.currentThread().getContextClassLoader.getResource(".").getPath)
-  println("config director:" + configPath)
+//  val configPath = System.getProperty("configPath",Thread.currentThread().getContextClassLoader.getResource(".").getPath)
+//  println("config director:" + configPath)
    def load(propertiesName:String)={
 //     val prop = new Properties()
 //
@@ -36,7 +36,7 @@ object Config {
      properties
    }
   def main(args: Array[String]): Unit = {
-    val prop:Properties =Config.load("my.properties")
+    val prop:Properties =Config.load("config.properties")
     val value = prop.getProperty("name")
     println(value)
   }

@@ -17,7 +17,7 @@ object ceshi {
     val spark = SparkSession.builder().appName("Spark Hive Demo").enableHiveSupport().getOrCreate()
     val sc=spark.sparkContext
     //测试从配置文件读取值
-    val conf = Config.load("my.properties")
+    val conf = Config.load("config.properties")
     val outputPath: String = conf.getProperty("outputPath")
     //判断路径是否存在,存在即删除
     if (PathUtil.isExisted(sc,outputPath)){
