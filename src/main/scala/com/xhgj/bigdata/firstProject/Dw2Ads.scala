@@ -100,7 +100,7 @@ object Dw2Ads {
     props.setProperty("password", password)
     props.setProperty("driver", "com.mysql.jdbc.Driver")
 
-    // 将 DataFrame 中的数据保存到 MySQL 中
+    // 将 DataFrame 中的数据保存到 MySQL 中(直接把原表删除, 建新表, 很暴力)
     res.write.mode("overwrite")
       .option("createTableColumnTypes", "createdate varchar(32),projectname varchar(1000),projectno varchar(255),customerorderid varchar(1500),salescompany varchar(255),salesdept varchar(128),createuser varchar(64),salename varchar(64),operatorname varchar(64),materialno varchar(128),brand varchar(255),materialname varchar(500),specification varchar(500),qty decimal(19,4),taxprice decimal(19,4),allamount decimal(19,4),consignee varchar(64),contactphone varchar(64),shppingaddress varchar(500),isinternalcustomer varchar(32),purtype varchar(32),mrpterminatestatus varchar(32),isdx varchar(32),performanceform varchar(32) ,unitname varchar(64),note varchar(1000),saleorderno varchar(128),bill_type varchar(32),documentstatus varchar(32)")// 明确指定 MySQL 数据库中字段的数据类型
       .option("batchsize", "10000")

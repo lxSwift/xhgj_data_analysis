@@ -3,6 +3,8 @@ package com.xhgj.bigdata.firstProject
 import com.xhgj.bigdata.util.TableName
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
+import java.text.SimpleDateFormat
+
 /**
  * @Author luoxin
  * @Date 2023/4/27 16:07
@@ -209,5 +211,17 @@ spark.sql(
   def showDf(result: DataFrame, num: Int): Unit = {
     println("result num is ===="+result.count())
     result.show(num)
+  }
+
+  /**
+   * 写一个函数, 实现对两个日期计算之间的天数
+   */
+  def getDays(startDate: String, endDate: String): Int = {
+    val format = new SimpleDateFormat("yyyy-MM-dd")
+    val start = format.parse(startDate)
+    val end = format.parse(endDate)
+    val time = end.getTime - start.getTime
+    val days = time / (1000 * 60 * 60 * 24)
+    days.toInt
   }
 }
