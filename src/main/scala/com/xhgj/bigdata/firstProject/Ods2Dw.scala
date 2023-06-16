@@ -85,7 +85,7 @@ object Ods2Dw {
          |INSERT OVERWRITE TABLE ${TableName.DWD_PUR_INSTOCK}
          |SELECT
          |OEI.FID,
-         |OEIE.FENTRYID,
+         |OEIE.FENTRYID ,
          |OEI.FBILLNO,
          |OEI.FDOCUMENTSTATUS,
          |OEI.FCREATORID,
@@ -99,10 +99,11 @@ object Ods2Dw {
          |OEIE.FGIVEAWAY,
          |OEIE.FSTOCKID,
          |OEIE.FSRCBILLNO,
-         |OEIE.FLOT
+         |DL.FNAME FLOTNAME
          |FROM ${TableName.ODS_ERP_INSTOCK} oei
          |LEFT JOIN ${TableName.ODS_ERP_INSTOCKENTRY} oeie ON oei.FID = oeie.FID
          |LEFT JOIN ${TableName.ODS_ERP_INSTOCKENTRY_F} oeif ON oeif.FENTRYID = oeie.FENTRYID
+         |LEFT JOIN ${TableName.DIM_LOTMASTER} dl ON oeie.FLOT = dl.FLOTID
          |""".stripMargin)
 
     //--发货通知单表DWD_SAL_DELIVERYNOTICE
@@ -121,9 +122,10 @@ object Ods2Dw {
          |,OEDE.FMATERIALID
          |,OEDE.FQTY
          |,OEDE.FSRCBILLNO
-         |,OEDE.FLOT
+         |,DL.FNAME FLOTNAME
          |FROM ${TableName.ODS_ERP_DELIVERYNOTICE} oed
          |LEFT JOIN ${TableName.ODS_ERP_DELIVERYNOTICEENTRY} oede ON oede.FID = oed.FID
+         |LEFT JOIN ${TableName.DIM_LOTMASTER} dl ON oede.FLOT = dl.FLOTID
          |""".stripMargin)
 
     //--销售出库单表DWD_SAL_OUTSTOCK

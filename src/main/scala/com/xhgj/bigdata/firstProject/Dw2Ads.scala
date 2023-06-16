@@ -28,6 +28,7 @@ object Dw2Ads {
   }
 
   def runRES(spark: SparkSession): Unit = {
+
     val res = spark.sql(
       s"""
          |select cast (oes.fcreatedate as varchar(32)) as createdate,
@@ -43,9 +44,9 @@ object Dw2Ads {
          | cast(dm.f_paez_text as varchar(255)) as brand,
          | cast(dm.fname as varchar(500)) as materialname,
          | cast(dm.fspecification as varchar(500)) as specification,
-         | cast(oese.fqty as decimal(19,4)) as qty,
-         | cast(oesf.ftaxprice as decimal(19,4)) as taxprice,
-         | cast(oesf.fallamount as decimal(19,4)) as allamount,
+         | cast(oes.fqty as decimal(19,4)) as qty,
+         | cast(oes.ftaxprice as decimal(19,4)) as taxprice,
+         | cast(oes.fallamount as decimal(19,4)) as allamount,
          | cast(oes.f_paez_text as varchar(64)) as consignee,
          | cast(oes.f_paez_text1 as varchar(64))  as contactphone,
          | cast(oes.f_paez_text2 as varchar(500)) as shppingaddress,
@@ -55,9 +56,9 @@ object Dw2Ads {
          | cast(case when oes.fpurtype = 'A' then '自采'
          | 	when oes.fpurtype = 'B' then '组织间采购'
          | 	else oes.fpurtype end as varchar(32)) as purtype,
-         | cast(case when oese.fmrpterminatestatus = 'A' then '正常'
-         | 	when oese.fmrpterminatestatus = 'B' then '业务终止'
-         | 		else oese.fmrpterminatestatus end as varchar(32)) as mrpterminatestatus,
+         | cast(case when oes.fmrpterminatestatus = 'A' then '正常'
+         | 	when oes.fmrpterminatestatus = 'B' then '业务终止'
+         | 		else oes.fmrpterminatestatus end as varchar(32)) as mrpterminatestatus,
          | cast(case when oes.f_paez_checkbox = 1 then '是'
          | 	  when oes.f_paez_checkbox = 0 then '否'
          | 	  else oes.f_paez_checkbox end as varchar(32)) as isdx,
@@ -73,15 +74,13 @@ object Dw2Ads {
          | 	when oes.fdocumentstatus = 'C' then '已审核'
          | 	when oes.fdocumentstatus = 'D' then '重新审核'
          | 	else oes.fdocumentstatus end as varchar(32)) as documentstatus
-         |from ${TableName.ODS_ERP_SALORDER} oes
+         |from ${TableName.DWD_SAL_ORDER} oes
          |left join ${TableName.DIM_PROJECTBASIC} dp on oes.fprojectbasic  = dp.fid
          |left join ${TableName.DIM_USER} du on oes.FCREATORID = du.fuserid
          |left join ${TableName.DIM_SALEMAN} ds on oes.fsalerid = ds.fid
          |left join ${TableName.DIM_EMPINFO} de on oes.f_paez_base3 = de.fid
-         |left join ${TableName.ODS_ERP_SALORDERENTRY} oese on oes.fid = oese.fid
-         |left join ${TableName.DIM_UNIT} dun on oese.funitid = dun.funitid
-         |left join ${TableName.DIM_MATERIAL} dm on oese.fmaterialid = dm.fmaterialid
-         |left join ${TableName.ODS_ERP_SALORDERENTRY_F} oesf on oesf.fentryid = oese.fentryid
+         |left join ${TableName.DIM_UNIT} dun on oes.funitid = dun.funitid
+         |left join ${TableName.DIM_MATERIAL} dm on oes.fmaterialid = dm.fmaterialid
          |left join ${TableName.DIM_CUSTOMER} dc on oes.fcustid = dc.fcustid
          |""".stripMargin)
     println(res.count())
