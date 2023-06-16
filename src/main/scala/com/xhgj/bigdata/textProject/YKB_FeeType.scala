@@ -1,8 +1,9 @@
-package com.xhgj.bigdata.firstProject
+package com.xhgj.bigdata.textProject
 
 import com.xhgj.bigdata.util.{JsonParse, TableName}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+
 import scala.io.Source
 
 object YKB_FeeType {

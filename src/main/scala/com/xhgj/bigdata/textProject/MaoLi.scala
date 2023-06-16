@@ -1,4 +1,4 @@
-package com.xhgj.bigdata.firstProject
+package com.xhgj.bigdata.textProject
 
 import com.xhgj.bigdata.util.TableName
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -25,7 +25,6 @@ object MaoLi {
     spark.stop()
   }
   def runRES(spark: SparkSession): Unit = {
-    import spark.implicits._
     //进行列裁剪
 //  T_AR_RECEIVABLE
     spark.sql(

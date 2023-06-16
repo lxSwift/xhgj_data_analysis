@@ -11,14 +11,14 @@ import java.util.Properties
  * @Date 2023/6/8 9:00
  * @PackageName:com.xhgj.bigdata.firstProject
  * @ClassName: Test
- * @Description: TODO
+ * @Description: 销售订单报表编写
  * @Version 1.0
  */
 object Dw2Ads {
   def main(args: Array[String]): Unit = {
     val spark = SparkSession
       .builder()
-      .appName("Spark task job Test.scala")
+      .appName("Spark task job Dw2Ads.scala")
       .enableHiveSupport()
       .getOrCreate()
 
