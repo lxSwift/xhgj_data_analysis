@@ -415,9 +415,6 @@ object UpdateData {
          |RANK = 1
          |""".stripMargin)
 
-
-
-
     //ODS_ERP_SALORDER表增量更新
     spark.sql(
       s"""
@@ -2084,6 +2081,50 @@ object UpdateData {
          |rank = 1
          |""".stripMargin)
 
-
+    //DIM_LOTMASTER表增量更新
+    spark.sql(
+      s"""
+         |SELECT
+         | *,
+         | row_number() over(partition by FLOTID order by FMODIFYDATE desc) rank
+         |FROM
+         |${TableName.DIM_LOTMASTER}
+         |""".stripMargin).createOrReplaceTempView("LOTMASTER")
+    spark.sql(
+      s"""
+         |insert overwrite table ${TableName.DIM_LOTMASTER}
+         |select
+         |  FLOTID,
+         |	FMASTERID,
+         |	FMATERIALID,
+         |	FAUXPROPERTYID,
+         |	FNUMBER,
+         |	FLOTSTATUS,
+         |	FDOCUMENTSTATUS,
+         |	FSUPPLYID,
+         |	FSUPPLYLOT,
+         |	FPRODUCEDEPTID,
+         |	FCREATEORGID,
+         |	FUSEORGID,
+         |	FCREATORID,
+         |	FCREATEDATE,
+         |	FMODIFIERID,
+         |	FMODIFYDATE,
+         |	FPRODUCEDATE,
+         |	FEXPIRYDATE,
+         |	FFORBIDSTATUS,
+         |	FBIZTYPE,
+         |	FCUSTID,
+         |	FCANCELSTATUS,
+         |	FINSTOCKDATE,
+         |	FPKID,
+         |	FLOCALEID,
+         |	FNAME,
+         |	FDESCRIPTION
+         |FROM
+         |  LOTMASTER
+         |where
+         |rank = 1
+         |""".stripMargin)
   }
 }
