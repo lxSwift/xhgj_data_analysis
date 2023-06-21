@@ -35,9 +35,31 @@ object Config {
      fis.close()
      properties
    }
+
+  def loadWind(propertiesName:String)={
+    //读取本地路径下的配置文件
+    val directory = new File("./src/main/resources")
+    val filePath = directory.getAbsolutePath
+    println(filePath)
+    val postgprop = new Properties
+    val ipstream = new BufferedInputStream(new FileInputStream(filePath+"/"+propertiesName))
+    postgprop.load(ipstream)
+    ipstream.close()
+    postgprop
+
+  }
   def main(args: Array[String]): Unit = {
-    val prop:Properties =Config.load("config.properties")
-    val value = prop.getProperty("name")
-    println(value)
+    val prop =Config.loadWind("config.properties")
+    val pro = prop.getProperty("table_incr")
+    //把pro参数按照逗号切割成列表
+    val listable = pro.split(",")
+    for(i <- listable){
+      val j = i.split("--")
+      println(i)
+      println(j(0))
+      println(j(1))
+      println(j(2))
+
+    }
   }
 }

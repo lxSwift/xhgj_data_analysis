@@ -36,8 +36,8 @@ object Ods2Dw {
          |,OER.FDOCUMENTSTATUS
          |,OER.FCREATORID
          |,OER.FCREATEDATE
-         |,OER.FAPPLICATIONORGID
-         |,OER.FAPPLICATIONDATE
+         |,OER.FAPPROVERID
+         |,OER.FAPPROVEDATE
          |,OERE.F_PROJECTNO
          |,OER.F_PXDF_ORGID
          |,OERE.F_PAEZ_BASE1
@@ -45,6 +45,8 @@ object Ods2Dw {
          |,OERE.FREQQTY
          |,OERE.FAPPROVEQTY
          |,OERE.FMATERIALID
+         |,OER.FAPPLICATIONORGID
+         |,OER.FAPPLICATIONDATE
          |FROM ${TableName.ODS_ERP_REQUISITION} oer
          |LEFT JOIN ${TableName.ODS_ERP_REQENTRY} oere ON oere.FID = oer.FID
          |LEFT JOIN ${TableName.ODS_ERP_REQENTRY_R} oerr ON oere.fentryid = oerr.fentryid
@@ -73,10 +75,12 @@ object Ods2Dw {
          |,OEPF.FTAXPRICE
          |,OEPF.FALLAMOUNT
          |,OEPR.FSRCBILLNO
+         |,OEP.FPURCHASEORGID
+         |,OEP.FDATE
          |FROM ${TableName.ODS_ERP_POORDER} oep
          |LEFT JOIN ${TableName.ODS_ERP_POORDERENTRY} oepe on oep.fid = oepe.fid
          |LEFT JOIN ${TableName.ODS_ERP_POORDERENTRY_F} oepf on oepe.fentryid = oepf.fentryid
-         |LEFT JOIN ${TableName.ODS_ERP_POORDERENTRY_R} oepr on oepe.Fentryid = oepr.fentryid ;
+         |LEFT JOIN ${TableName.ODS_ERP_POORDERENTRY_R} oepr on oepe.Fentryid = oepr.fentryid
          |""".stripMargin)
 
     //--采购入库单表DWD_PUR_INSTOCK
@@ -99,7 +103,10 @@ object Ods2Dw {
          |OEIE.FGIVEAWAY,
          |OEIE.FSTOCKID,
          |OEIE.FSRCBILLNO,
-         |DL.FNAME FLOTNAME
+         |DL.FNAME FLOTNAME,
+         |OEI.FSTOCKORGID,
+         |OEI.FDATE,
+         |OEIF.F_PAEZ_AMOUNT
          |FROM ${TableName.ODS_ERP_INSTOCK} oei
          |LEFT JOIN ${TableName.ODS_ERP_INSTOCKENTRY} oeie ON oei.FID = oeie.FID
          |LEFT JOIN ${TableName.ODS_ERP_INSTOCKENTRY_F} oeif ON oeif.FENTRYID = oeie.FENTRYID
@@ -123,6 +130,8 @@ object Ods2Dw {
          |,OEDE.FQTY
          |,OEDE.FSRCBILLNO
          |,DL.FNAME FLOTNAME
+         |,OED.FDELIVERYORGID
+         |,OED.FDATE
          |FROM ${TableName.ODS_ERP_DELIVERYNOTICE} oed
          |LEFT JOIN ${TableName.ODS_ERP_DELIVERYNOTICEENTRY} oede ON oede.FID = oed.FID
          |LEFT JOIN ${TableName.DIM_LOTMASTER} dl ON oede.FLOT = dl.FLOTID
@@ -149,6 +158,13 @@ object Ods2Dw {
          |,OEOF.FTAXPRICE
          |,OEOF.FALLAMOUNT
          |,OEOR.FSRCBILLNO
+         |,OEO.FSTOCKORGID
+         |,OEO.FDATE
+         |,OEOR.FARJOINQTY
+         |,OEOR.FARJOINAMOUNT
+         |,OEOR.FARAMOUNT
+         |,OEOR.FARNOTJOINQTY
+         |,OEOE.F_PAEZ_AMOUNT
          |FROM ${TableName.ODS_ERP_OUTSTOCK} oeo
          |LEFT JOIN ${TableName.ODS_ERP_OUTSTOCKENTRY} oeoe ON oeo.FID = oeoe.FID
          |LEFT JOIN ${TableName.ODS_ERP_OUTSTOCKENTRY_F} oeof  ON oeoe.FENTRYID = oeof.FENTRYID
@@ -174,6 +190,13 @@ object Ods2Dw {
          |,OEAE.FTAXPRICE
          |,OEAE.FAMOUNT
          |,OEAE.FALLAMOUNT
+         |,OEA.FACCTORGID
+         |,OEA.FDATE
+         |,OEAE.FREFERAMOUNT
+         |,OEAE.FREFERQTY
+         |,OEAE.F_PXDF_QTY
+         |,OEAE.F_PXDF_AMOUNT
+         |,OEAE.F_PXDF_TEXT4
          | FROM ${TableName.ODS_ERP_ARSETTLEMENT} oea
          | LEFT JOIN ${TableName.ODS_ERP_ARSETTLEMENTDETAIL} oeae ON oea.FID = oeae.FID
          |""".stripMargin)
@@ -211,6 +234,8 @@ object Ods2Dw {
          |,OESE.FUNITID
          |,OESE.FMATERIALID
          |,OES.FCUSTID
+         |,OES.FSALEORGID
+         |,OES.FDATE
          |FROM ${TableName.ODS_ERP_SALORDER} OES
          |LEFT JOIN ${TableName.ODS_ERP_SALORDERENTRY} OESE ON OES.FID = OESE.FID
          |LEFT JOIN ${TableName.ODS_ERP_SALORDERENTRY_F} OESF ON OESE.FENTRYID = OESF.FENTRYID

@@ -125,7 +125,7 @@ spark.sql(
         |join t_Bd_Material_l t4_L on t4_L.fmaterialid=t4.fmaterialid
         |join ${TableName.T_BD_MATERIALGROUP} t4_Group on t4_Group.Fid=t4.FMATERIALGROUP
         |left join ${TableName.PAEZ_T_CUST_ENTRY100020} t4_Brand on t4_Brand.Fid=t4.F_PAEZ_BASE
-        |left join ${TableName.Paez_t_Cust_Entry100020_l} t4_B rand_L on t4_Brand_L.Fid=t4.F_PAEZ_BASE
+        |left join ${TableName.Paez_t_Cust_Entry100020_l} t4_Brand_L on t4_Brand_L.Fid=t4.F_PAEZ_BASE
         |left join ${TableName.PAEZ_t_Cust_Entry100002_L} t4_Brand_Type_L on t4_Brand_Type_L.Fid=t4_Brand.f_Pxdf_Base
         |join ${TableName.T_ORG_ORGANIZATIONS} t6 on t6.Forgid=a.Fpayorgid
         |join ${TableName.T_ORG_ORGANIZATIONS_L} t6_L on t6_L.Forgid=t6.Forgid

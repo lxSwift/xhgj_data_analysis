@@ -1,0 +1,485 @@
+package com.xhgj.bigdata.textProject
+
+import com.xhgj.bigdata.util.{Config, TableName}
+import org.apache.spark.sql.SparkSession
+
+import java.sql.Types.{DECIMAL, VARCHAR}
+import java.util.Properties
+
+/**
+ * @Author luoxin
+ * @Date 2023/6/16 16:13
+ * @PackageName:com.xhgj.bigdata.textProject
+ * @ClassName: ResTest
+ * @Description: TODO
+ * @Version 1.0
+ */
+object ResTest {
+  def main(args: Array[String]): Unit = {
+    val spark = SparkSession
+      .builder()
+      .appName("Spark task job ResTest.scala")
+      .enableHiveSupport()
+      .getOrCreate()
+
+//    runRES(spark)
+    RerurnStock(spark)
+    //关闭SparkSession
+    spark.stop()
+  }
+  def runRES(spark: SparkSession): Unit = {
+    spark.sql(
+      s"""
+         |select oer.fbillno,
+         |	 	oer.fcreatedate,
+         |	 	oer.fapprovedate,
+         |	 	oere.fmaterialid,
+         |	 	case when oer.fdocumentstatus = 'Z' then '暂存'
+         |	 		 when oer.fdocumentstatus = 'A' then '创建'
+         |	 		 when oer.fdocumentstatus = 'B' then '审核中'
+         |	 		 when oer.fdocumentstatus = 'C' then '已审核'
+         |	 		 when oer.fdocumentstatus = 'D' then '重新审核'
+         |	 		 else oer.fdocumentstatus end as fdocumentstatus,
+         |	 	do1.fname reqorgname,
+         |	 	oer.fapplicationdate ,
+         |	 	dp.fname f_projectno,
+         |	 	dm.fnumber materno,
+         |	 	dm.fname matername,
+         |	 	dm.f_paez_text brandname,
+         |	 	dm.fspecification specification,
+         |		do2.fname saleorgname,
+         |		ds.fname saler ,
+         |		oerr.fsrcbillno,
+         |		oer.fid,
+         |		oere.fentryid,
+         |		oerl.fsbillid ,
+         |		oerl.fsid,
+         |		DC.FNAME KHLB
+         |from ${TableName.ODS_ERP_REQUISITION} oer
+         |left join ${TableName.ODS_ERP_REQENTRY} oere on oer.fid = oere.fid
+         |left join ${TableName.ODS_ERP_REQENTRY_R} oerr on oere.fentryid = oerr.fentryid
+         |left join ${TableName.ODS_ERP_REQENTRY_LK} oerl on oere.fentryid = oerl.fentryid
+         |LEFT JOIN ${TableName.DIM_MATERIAL} dm on oere.fmaterialid = dm.fmaterialid --物料表
+         |LEFT JOIN ${TableName.DIM_CUST100501} DC ON dm.f_khr = DC.FID
+         |LEFT JOIN ${TableName.DIM_ORGANIZATIONS} do1 on oer.FAPPLICATIONORGID = do1.forgid
+         |LEFT JOIN ${TableName.DIM_ORGANIZATIONS} do2 on oer.f_pxdf_orgid = do2.forgid
+         |LEFT JOIN ${TableName.DIM_SALEMAN} ds on oere.f_paez_base1 = ds.fid
+         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} dp ON oere.f_projectno = DP.fid
+         |WHERE oer.FAPPLICATIONORGID = '1'
+         |""".stripMargin).createOrReplaceTempView("a1")
+    spark.sql(
+      s"""
+        |select oep.fbillno,
+        |		oep.fcreatedate,
+        |		oep.fapprovedate,
+        |		oepe.fmaterialid,
+        |		oepr.fsrcbillno,
+        |		case when oep.fdocumentstatus = 'Z' then '暂存'
+        |	 		 when oep.fdocumentstatus = 'A' then '创建'
+        |	 		 when oep.fdocumentstatus = 'B' then '审核中'
+        |	 		 when oep.fdocumentstatus = 'C' then '已审核'
+        |	 		 when oep.fdocumentstatus = 'D' then '重新审核'
+        |	 		 else oep.fdocumentstatus end as fdocumentstatus,
+        |		ds.fname suppliername ,
+        |		dd.fname purdeptnmea,
+        |		db.fname purchasername,
+        |		oepl.fsbillid,
+        |		oepl.fsid,
+        |		oep.fid,
+        |		oepe.fentryid
+        |	from ${TableName.ODS_ERP_POORDER} oep
+        |	left join ${TableName.ODS_ERP_POORDERENTRY} oepe on oep.fid = oepe.fid
+        |	left join ${TableName.ODS_ERP_POORDERENTRY_R} oepr on oepe.fentryid = oepr.fentryid
+        |	left join ${TableName.ODS_ERP_POORDERENTRY_LK} oepl on oepl.fentryid = oepe.fentryid
+        |	LEFT JOIN ${TableName.DIM_DEPARTMENT} dd on oep.fpurchasedeptid = dd.fdeptid
+        |	LEFT JOIN ${TableName.DIM_BUYER} db on oep.fpurchaserid = db.fid
+        |	LEFT JOIN ${TableName.DIM_SUPPLIER} ds ON oep.fsupplierid = ds.fsupplierid
+        |	 WHERE oep.FBILLNO <> '' and oepr.FSRCBILLNO <> '' and oep.fpurchaseorgid = '1'
+        |""".stripMargin).createOrReplaceTempView("a2")
+
+    spark.sql(
+      s"""
+        |SELECT oei.fbillno,
+        |		oei.fcreatedate,
+        |		oei.fapprovedate,
+        |		oeie.fmaterialid,
+        |		oeie.fsrcbillno,
+        |		dl.fname flotname,
+        |		oeil.fsbillid,
+        |		oeil.fsid
+        |	FROM ${TableName.ODS_ERP_INSTOCK} oei
+        |	left join ${TableName.ODS_ERP_INSTOCKENTRY} oeie on oei.fid = oeie.fid
+        |	left join ${TableName.ODS_ERP_INSTOCKENTRY_LK} oeil on oeie.fentryid = oeil.fentryid
+        |	left join ${TableName.DIM_LOTMASTER} dl on oeie.flot = dl.flotid
+        |	WHERE oei.FBILLNO <> '' and oeie.FSRCBILLNO <>'' and oei.FSTOCKORGID = '1'
+        |""".stripMargin).createOrReplaceTempView("a3")
+
+    spark.sql(
+      s"""
+         |select oed.fid,
+         |		oed.fcreatedate,
+         |		oed.fapprovedate,
+         |		oede.fentryid,
+         |		oede.fmaterialid,
+         |		dl.fname flotname
+         |	from ${TableName.ODS_ERP_DELIVERYNOTICE} oed
+         |	left join ${TableName.ODS_ERP_DELIVERYNOTICEENTRY} oede on oed.fid = oede.fid
+         |	left join ${TableName.DIM_LOTMASTER} dl on oede.flot = dl.flotid
+         |""".stripMargin).createOrReplaceTempView("a4")
+
+    spark.sql(
+      s"""
+        |select
+        |		oeo.fcreatedate,
+        |		oeo.fapprovedate,
+        |		oeoe.fmaterialid,
+        |		oeol.fsbillid,
+        |		oeol.fsid
+        |	from ${TableName.ODS_ERP_OUTSTOCK} oeo
+        |	left join ${TableName.ODS_ERP_OUTSTOCKENTRY} oeoe on oeo.fid = oeoe.fid
+        |	left join ${TableName.ODS_ERP_OUTSTOCKENTRY_LK} oeol on oeoe.fentryid = oeol.fentryid
+        |""".stripMargin).createOrReplaceTempView("a5")
+
+    spark.sql(
+      s"""
+         |select
+         |		a4.flotname,
+         |		a4.fmaterialid,
+         |		a4.fcreatedate sendcreadate,
+         |		a4.fapprovedate sendappdate,
+         |		a5.fcreatedate outcreadate,
+         |		a5.fapprovedate outappdate,
+         |		ROW_NUMBER() OVER(partition by a4.flotname,a4.fmaterialid,a4.fcreatedate,a4.fapprovedate order by a5.fapprovedate desc) fnum
+         |	from a4
+         |	left join a5 on a4.fid = a5.fsbillid and a4.fentryid = a5.fsid and a4.fmaterialid = a5.fmaterialid
+         |""".stripMargin).createOrReplaceTempView("a6")
+
+    spark.sql(
+      s"""
+         |select flotname,
+         |		fmaterialid,
+         |		sendcreadate,
+         |		sendappdate,
+         |		outcreadate,
+         |		outappdate,
+         |		ROW_NUMBER() over(partition by flotname,fmaterialid order by sendappdate desc) fnum
+         |	from a6
+         |	where fnum = 1
+         |""".stripMargin).createOrReplaceTempView("a7")
+
+    spark.sql(
+      s"""
+         |select flotname,
+         |		fmaterialid,
+         |		sendcreadate,
+         |		sendappdate,
+         |		outcreadate,
+         |		outappdate
+         |	from a7
+         |	where fnum = 1
+         |""".stripMargin).createOrReplaceTempView("a8")
+
+    spark.sql(
+      s"""
+         |select
+         |		fbillno,
+         |		fcreatedate,
+         |		fapprovedate,
+         |		fid,
+         |		fentryid,
+         |		fmaterialid
+         |	from ${TableName.DWD_SAL_ORDER} dso
+         |	where fbillno <> ''
+         |""".stripMargin).createOrReplaceTempView("a9")
+
+
+    val res = spark.sql(
+      s"""
+         |select a1.fbillno reqno,
+         |	a1.fdocumentstatus reqstatus,
+         |	a1.reqorgname,
+         |	a1.fapplicationdate reqapplidate,
+         |	a1.f_projectno reqprono,
+         |	a1.saleorgname,
+         |	a1.saler,
+         |	a1.fsrcbillno saleno,
+         |	a2.fbillno purno,
+         |	a2.fdocumentstatus purstatus,
+         |	a2.suppliername,
+         |	a2.purdeptnmea,
+         |	a2.purchasername,
+         |	a1.materno,
+         |	a1.matername,
+         |	a1.brandname,
+         |	a1.specification,
+         |	a1.khlb testtype,
+         |	a9.fcreatedate salecreadate,
+         |	a9.fapprovedate saleappdate,
+         |	a1.fcreatedate reqcreadate,
+         |	a1.fapprovedate reqappdate,
+         |	a2.fcreatedate purcreadate,
+         |	a2.fapprovedate purappdate,
+         |	a3.fcreatedate increadate,
+         |	a3.fapprovedate inappdate,
+         |	a8.sendcreadate,
+         |	a8.sendappdate,
+         |	a8.outcreadate,
+         |	a8.outappdate,
+         |	datediff(from_unixtime(unix_timestamp(a9.fapprovedate),'yyyy-MM-dd'),from_unixtime(unix_timestamp(a9.fcreatedate),'yyyy-MM-dd')) salfordate,
+         |	datediff(from_unixtime(unix_timestamp(a1.fapplicationdate),'yyyy-MM-dd'),from_unixtime(unix_timestamp(a1.fcreatedate),'yyyy-MM-dd')) reqfordate,
+         |	datediff(from_unixtime(unix_timestamp(a2.fapprovedate),'yyyy-MM-dd'),from_unixtime(unix_timestamp(a1.fapprovedate),'yyyy-MM-dd')) poofordate
+         |from a1 left join a2 on a1.fid = a2.fsbillid
+         |AND A1.fentryid = A2.fsid
+         |left join a3 on a2.fid = a3.fsbillid
+         |AND A2.fentryid = a3.fsid
+         |left join a8 on a8.flotname = a3.flotname and a8.fmaterialid = a3.fmaterialid
+         |left join a9 on a1.fsid = a9.fentryid and a1.fsbillid = a9.fid
+         |""".stripMargin)
+    // 定义 MySQL 的连接信息
+    val conf = Config.load("config.properties")
+    val url = conf.getProperty("database.url")
+    val user = conf.getProperty("database.user")
+    val password = conf.getProperty("database.password")
+    val table = "ads_pur_taketime"
+
+
+    // 定义 JDBC 的相关配置信息
+    val props = new Properties()
+    props.setProperty("user", user)
+    props.setProperty("password", password)
+    props.setProperty("driver", "com.mysql.jdbc.Driver")
+
+    // 将 DataFrame 中的数据保存到 MySQL 中(直接把原表删除, 建新表, 很暴力)
+    res.write.mode("overwrite").jdbc(url, table, props)
+
+  }
+
+  def runRES2(spark: SparkSession) = {
+    //已开票金额
+    spark.sql(
+      s"""
+         |SELECT	--已开票金额
+         |	substring(oer.fdate,1,10) fdate,
+         |	oere.F_PAEZ_BASE purdept,
+         |	oere.F_PAEZ_BASE1 purperson,
+         |	oere.fmaterialid,
+         |	SUM(oere.FPRICEQTY * OERE.FTAXPRICE) AS FAMOUNT
+         |FROM ${TableName.ODS_ERP_RECEIVABLE} oer
+         |LEFT JOIN ${TableName.ODS_ERP_RECEIVABLEENTRY} oere ON OER.fid = oere.fid
+         |WHERE oer.FSETTLEORGID = 1 and FDOCUMENTSTATUS = 'C'
+         |GROUP BY
+         |oere.F_PAEZ_BASE ,
+         |	oere.F_PAEZ_BASE1 ,
+         |	oere.fmaterialid,
+         |	substring(oer.fdate,1,10)
+         |""".stripMargin).createOrReplaceTempView("a1")
+    //--未开票金额
+    spark.sql(
+      s"""
+         |SELECT fdate,PURDEPT,PURPERSON,fmaterialid,SUM(FAMOUNT) FAMOUNT FROM (
+         |select 	--未开票金额
+         |substring(oea.fdate,1,10) fdate,
+         |oead.F_PXDF_BASE2 purdept,
+         |oead.F_PXDF_BASE1 purperson,
+         |oead.fmaterialid,
+         |oead.F_PXDF_QTY * oead.FTAXPRICE AS FAMOUNT
+         |from ${TableName.ODS_ERP_ARSETTLEMENT} oea
+         |left join ${TableName.ODS_ERP_ARSETTLEMENTDETAIL} oead on oea.fid = oead.fid
+         |where oea.FACCTORGID = 1
+         |UNION ALL
+         |select --未开票金额
+         |substring(oeo.fdate,1,10) fdate,
+         |oeoe.F_PAEZ_BASE2 purdept,
+         |oeoe.F_PAEZ_BASE1 pyrperson,
+         |oeoe.fmaterialid,
+         |oeor.FARNOTJOINQTY*oeof.FTAXPRICE AS FAOMUNT
+         |from ${TableName.ODS_ERP_OUTSTOCK} oeo
+         |left join ${TableName.ODS_ERP_OUTSTOCKENTRY} oeoe on oeo.fid = oeoe.fid
+         |left join ${TableName.ODS_ERP_OUTSTOCKENTRY_F} oeof on oeoe.fentryid = oeof.fentryid
+         |left join ${TableName.ODS_ERP_OUTSTOCKENTRY_R} oeor on oeoe.fentryid = oeor.fentryid
+         |where oeo.FSTOCKORGID = 1
+         |) WEI
+         |GROUP BY fdate,PURDEPT,PURPERSON,fmaterialid
+         |""".stripMargin).createOrReplaceTempView("a2")
+
+    //在执行金额
+    spark.sql(
+      s"""
+         |SELECT --在执行金额
+         |substring(oep.fdate,1,10) fdate,
+         |oep.FPURCHASEDEPTID purdept,
+         |oep.FPURCHASERID purperson,
+         |oepe.fmaterialid,
+         |sum(oepe.F_PAEZ_AMOUNT) AS FAMOUNT
+         |FROM ${TableName.ODS_ERP_POORDER} oep
+         |LEFT JOIN ${TableName.ODS_ERP_POORDERENTRY} oepe on oep.fid =oepe.fid
+         |where FPURCHASEORGID = 1 and oepe.FMRPCLOSESTATUS = 'A'
+         |group by
+         |substring(oep.fdate,1,10),
+         |oep.FPURCHASEDEPTID,
+         |oep.FPURCHASERID,
+         |oepe.fmaterialid
+         |""".stripMargin).createOrReplaceTempView("a3")
+
+    spark.sql(
+      s"""
+         |SELECT
+         |substring(oei.fdate,1,10) fdate,
+         |oei.FPURCHASEDEPTID purdept,
+         |oei.FPURCHASERID purperson,
+         |oeie.fmaterialid,
+         |oeif.F_PAEZ_AMOUNT famount
+         |FROM ${TableName.ODS_ERP_INSTOCK} oei
+         |LEFT JOIN ${TableName.ODS_ERP_INSTOCKENTRY} oeie on oei.fid = oeie.fid
+         |left join ${TableName.ODS_ERP_INSTOCKENTRY_F} oeif on oeie.fentryid = oeif.fentryid
+         |left join ${TableName.DIM_STOCK} ds on oeie.FSTOCKID = ds.FSTOCKID
+         |where oeie.FGIVEAWAY = 0 and ds.fname not like '%样品%' and oei.FSTOCKORGID = 1
+         |""".stripMargin).createOrReplaceTempView("a4")
+
+    spark.sql(
+      s"""
+         |SELECT
+         |	nvl(nvl(nvl(a1.fdate,a2.fdate),a3.fdate),a4.fdate) fdate,
+         |	nvl(nvl(nvl(a1.purdept,a2.purdept),a3.purdept),a4.purdept) purdept,
+         |	nvl(nvl(nvl(a1.purperson,a2.purperson),a3.purperson),a4.purperson) purperson,
+         |	nvl(nvl(nvl(a1.fmaterialid,a2.fmaterialid),a3.fmaterialid),a4.fmaterialid) fmaterialid,
+         |	cast(nvl(a1.famount,0) as decimal(18,4)) ykpamount,
+         |	cast(nvl(a2.famount,0) as decimal(18,4)) wkpamount,
+         |	cast(nvl(a3.famount,0) as decimal(18,4)) zzxamount,
+         |	cast(nvl(a4.famount,0) as decimal(18,4)) wdpamount
+         |from a1
+         |full join a2 on a1.purdept = a2.purdept and a1.purperson = a2.purperson and a1.fmaterialid = a2.fmaterialid and a1.fdate = a2.fdate
+         |full join a3 on a2.purdept = a3.purdept and a2.purperson = a3.purperson and a2.fmaterialid = a3.fmaterialid and a2.fdate = a3.fdate
+         |full join a4 on a4.purdept = a3.purdept and a4.purperson = a3.purperson and a4.fmaterialid = a3.fmaterialid and a4.fdate = a3.fdate
+         |""".stripMargin).createOrReplaceTempView("a5")
+
+
+    val res2 = spark.sql(
+      s"""
+         |SELECT A5.FDATE,
+         |	dd.fname purdeptname,
+         |	db.fname buyername,
+         |	dm.fnumber materno,
+         |	dm.fname matername,
+         |	dm.f_paez_text brandname,
+         |	dm.fspecification specification,
+         |	a5.ykpamount ykpamount,
+         |	a5.wkpamount wkpamount,
+         |	a5.zzxamount zzxamount,
+         |	a5.wdpamount wdpamount,
+         |	dc.fname assesstype
+         |FROM a5
+         |LEFT JOIN ${TableName.DIM_MATERIAL} dm ON a5.fmaterialid = dm.fmaterialid
+         |LEFT JOIN ${TableName.DIM_CUST100501} DC ON dm.f_khr = DC.FID
+         |LEFT JOIN ${TableName.DIM_DEPARTMENT} dd ON dd.fdeptid  = a5.PURDEPT
+         |LEFT JOIN ${TableName.DIM_BUYER} db ON a5.PURPERSON = db.fid
+         |WHERE a5.ykpamount <> 0 or a5.wkpamount <> 0 or a5.zzxamount <> 0 or a5.wdpamount <> 0
+         |""".stripMargin)
+    println("num==============" + res2.count())
+    // 定义 MySQL 的连接信息
+    val conf = Config.load("config.properties")
+    val url = conf.getProperty("database.url")
+    val user = conf.getProperty("database.user")
+    val password = conf.getProperty("database.password")
+    val table = "ads_pur_amount"
+
+
+    // 定义 JDBC 的相关配置信息
+    val props = new Properties()
+    props.setProperty("user", user)
+    props.setProperty("password", password)
+    props.setProperty("driver", "com.mysql.jdbc.Driver")
+
+    // 将 DataFrame 中的数据保存到 MySQL 中(直接把原表删除, 建新表, 很暴力)
+    res2.write.mode("overwrite").jdbc(url, table, props)
+  }
+
+  def runRes3(spark: SparkSession): Unit = {
+    spark.sql(
+      """
+        |SELECT
+        | namee
+        |FROM
+        |keetle_test.tes_tmp
+        |group by namee
+        |WHERE cast(idf as Double) <> '' or namee <> '' or cast(age as Double) <> '' or gender <> ''
+        |""".stripMargin).show()
+    println("=====================")
+    spark.sql(
+      """
+        |SELECT
+        | *
+        |FROM
+        |keetle_test.tes_tmp WHERE cast(idf as Double) <> 0 or namee <> 0 or cast(age as Double) <> 0 or gender <> 0
+        |""".stripMargin).show()
+  }
+  def runRes4(spark: SparkSession): Unit = {
+    spark.sql("""select oep.fbillno,
+                |		oep.fcreatedate,
+                |		oep.fapprovedate,
+                |		oepe.fmaterialid,
+                |		oepr.fsrcbillno,
+                |		case when oep.fdocumentstatus = 'Z' then '暂存'
+                |	 		 when oep.fdocumentstatus = 'A' then '创建'
+                |	 		 when oep.fdocumentstatus = 'B' then '审核中'
+                |	 		 when oep.fdocumentstatus = 'C' then '已审核'
+                |	 		 when oep.fdocumentstatus = 'D' then '重新审核'
+                |	 		 else oep.fdocumentstatus end as fdocumentstatus,
+                |		ds.fname suppliername ,
+                |		dd.fname purdeptnmea,
+                |		db.fname purchasername,
+                |		oepl.fsbillid,
+                |		oepl.fsid,
+                |		oep.fid,
+                |		oepe.fentryid
+                |	from ods_xhgj.ods_erp_poorder oep
+                |	left join ods_xhgj.ods_erp_poorderentry oepe on oep.fid = oepe.fid
+                |	left join ods_xhgj.ods_erp_poorderentry_r oepr on oepe.fentryid = oepr.fentryid
+                |	left join ods_xhgj.ods_erp_poorderentry_lk oepl on oepl.fentryid = oepe.fentryid
+                |	LEFT JOIN dw_xhgj.dim_department dd on oep.fpurchasedeptid = dd.fdeptid
+                |	LEFT JOIN dw_xhgj.dim_buyer db on oep.fpurchaserid = db.fid
+                |	LEFT JOIN dw_xhgj.dim_supplier ds ON oep.fsupplierid = ds.fsupplierid
+                |	 WHERE oep.fbillno = 'WJ00347483' and oep.FBILLNO is not null and oepr.FSRCBILLNO is not null""".stripMargin).show(100)
+
+  }
+
+  def RerurnStock(spark: SparkSession): Unit = {
+    val res = spark.sql(
+      s"""
+         |SELECT OER.FDATE,	--业务日期
+         |	DD.FNAME DEPTNAME,	--新采购部门
+         |	DB.FNAME BUYERNAME,--采购员
+         |	DO.FNAME ORGNAME,	--销售组织
+         |	DS.FNAME SALERNAME,--销售员
+         |	OER.FBILLNO ,
+         |	OERE.FMATERIALID,
+         |	DM.FNAME MATERIALNAME--物料名称
+         |FROM ${TableName.ODS_ERP_RETURNSTOCK} OER
+         |LEFT JOIN ${TableName.ODS_ERP_RETURNSTOCKENTRY} OERE ON OER.FID  = OERE.FID
+         |LEFT JOIN ${TableName.DIM_BUYER} DB ON OERE.F_PAEZ_BASE = DB.FID
+         |LEFT JOIN ${TableName.DIM_DEPARTMENT} DD ON DB.FDEPTID = DD.FDEPTID
+         |LEFT JOIN ${TableName.DIM_ORGANIZATIONS} DO ON OER.FSALEORGID = DO.FORGID
+         |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON OER.FSALESMANID = DS.FID
+         |LEFT JOIN ${TableName.DIM_MATERIAL} DM ON OERE.FMATERIALID = DM.FMATERIALID
+         |WHERE FSTOCKORGID = '1'
+         |""".stripMargin)
+    println("num==============" + res.count())
+    // 定义 MySQL 的连接信息
+    val conf = Config.load("config.properties")
+    val url = conf.getProperty("database.url")
+    val user = conf.getProperty("database.user")
+    val password = conf.getProperty("database.password")
+    val table = "ads_pur_returnstock"
+
+
+    // 定义 JDBC 的相关配置信息
+    val props = new Properties()
+    props.setProperty("user", user)
+    props.setProperty("password", password)
+    props.setProperty("driver", "com.mysql.jdbc.Driver")
+
+    // 将 DataFrame 中的数据保存到 MySQL 中(直接把原表删除, 建新表, 很暴力)
+    res.write.mode("overwrite").jdbc(url, table, props)
+
+  }
+}
