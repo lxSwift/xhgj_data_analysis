@@ -14,11 +14,11 @@ import java.util.Properties
  * @Description: 销售订单报表编写
  * @Version 1.0
  */
-object Dw2Ads {
+object SaleOrder {
   def main(args: Array[String]): Unit = {
     val spark = SparkSession
       .builder()
-      .appName("Spark task job Dw2Ads.scala")
+      .appName("Spark task job SaleOrder.scala")
       .enableHiveSupport()
       .getOrCreate()
 

@@ -1,9 +1,8 @@
-package com.xhgj.bigdata.textProject
+package com.xhgj.bigdata.firstProject
 
 import com.xhgj.bigdata.util.{Config, TableName}
 import org.apache.spark.sql.SparkSession
 
-import java.sql.Types.{DECIMAL, VARCHAR}
 import java.util.Properties
 
 /**
@@ -14,20 +13,33 @@ import java.util.Properties
  * @Description: TODO
  * @Version 1.0
  */
-object ResTest {
+object ProcureMonitor {
   def main(args: Array[String]): Unit = {
     val spark = SparkSession
       .builder()
-      .appName("Spark task job ResTest.scala")
+      .appName("Spark task job ProcureMonitor.scala")
       .enableHiveSupport()
       .getOrCreate()
 
 //    runRES(spark)
+    takeTime(spark)
+    purAmount(spark)
     RerurnStock(spark)
+    WorkLoad(spark)
+
     //关闭SparkSession
     spark.stop()
   }
-  def runRES(spark: SparkSession): Unit = {
+
+  /**
+   * 采购过程--各个阶段花费的时间
+   * @param spark
+   */
+  def takeTime(spark: SparkSession): Unit = {
+
+    /**
+     * 将采购申请单表以及其衍生表和维度表关联起来, 并且只需要申请组织为1即万聚公司的值(这个是去组织维度表查到的对应)
+     */
     spark.sql(
       s"""
          |select oer.fbillno,
@@ -254,7 +266,11 @@ object ResTest {
 
   }
 
-  def runRES2(spark: SparkSession) = {
+  /**
+   *采购过程--金额取数
+   * @param spark
+   */
+  def purAmount(spark: SparkSession) = {
     //已开票金额
     spark.sql(
       s"""
@@ -443,6 +459,10 @@ object ResTest {
 
   }
 
+  /**
+   * 采购过程--退货单
+   * @param spark
+   */
   def RerurnStock(spark: SparkSession): Unit = {
     val res = spark.sql(
       s"""
@@ -481,5 +501,93 @@ object ResTest {
     // 将 DataFrame 中的数据保存到 MySQL 中(直接把原表删除, 建新表, 很暴力)
     res.write.mode("overwrite").jdbc(url, table, props)
 
+  }
+
+  /**
+   * 采购过程--工作量
+   * @param spark
+   */
+  def WorkLoad(spark: SparkSession)={
+    spark.sql(
+      s"""
+         |SELECT FDATE,FPURCHASEDEPTID PURDEPTID,FPURCHASERID PURERID,COUNT(*) NUM
+         |FROM (SELECT DISTINCT SUBSTRING(OER.FAPPLICATIONDATE,1,10) FDATE,OERS.FPURCHASEDEPTID,OERS.FPURCHASERID,OER.FBILLNO,OERE.FMATERIALID
+         |FROM ${TableName.ODS_ERP_REQUISITION} OER
+         |LEFT JOIN ${TableName.ODS_ERP_REQENTRY} OERE ON OER.FID = OERE.FID
+         |LEFT JOIN ${TableName.ODS_ERP_REQENTRY_S} OERS ON OERE.FENTRYID = OERS.FENTRYID
+         |WHERE OER.FAPPLICATIONORGID = '1'
+         |) AAA
+         |GROUP BY FDATE,FPURCHASEDEPTID,FPURCHASERID
+         |""".stripMargin).createOrReplaceTempView("A1")
+
+    spark.sql(
+      s"""
+         |SELECT SUBSTRING(FDATE,1,10) FDATE,OEP.FPURCHASEDEPTID PURDEPTID,OEP.FPURCHASERID PURERID,COUNT(*) NUM
+         |FROM ${TableName.ODS_ERP_POORDER} OEP
+         |WHERE FPURCHASEORGID = '1'
+         |GROUP BY SUBSTRING(FDATE,1,10) ,OEP.FPURCHASEDEPTID,OEP.FPURCHASERID
+         |""".stripMargin).createOrReplaceTempView("A2")
+
+    spark.sql(
+      s"""
+         |SELECT FDATE,PURDEPTID,PURERID,PAYTYPEID,COUNT(*) NUM ,SUM(FPAYAMOUNTFOR_E) FAMOUNT FROM (
+         |SELECT SUBSTRING(OEP.FDATE,1,10) FDATE, OEP.FPURCHASEDEPTID PURDEPTID,OEP.FPURCHASERID PURERID,OEPE.FSETTLETYPEID PAYTYPEID,OEP.FBILLNO,SUM(OEPE.FPAYAMOUNTFOR_E) FPAYAMOUNTFOR_E
+         |FROM ${TableName.ODS_ERP_PAYBILL} OEP
+         |LEFT JOIN ${TableName.ODS_ERP_PAYBILLENTRY} OEPE ON OEP.FID = OEPE.FID
+         |WHERE  OEP.FPAYORGID = '1'
+         |GROUP BY SUBSTRING(OEP.FDATE,1,10), OEP.FPURCHASEDEPTID,OEP.FPURCHASERID,OEPE.FSETTLETYPEID,OEP.FBILLNO
+         |) BBB
+         |GROUP BY FDATE,PURDEPTID,PURERID,PAYTYPEID
+         |""".stripMargin).createOrReplaceTempView("A3")
+
+    spark.sql(
+      s"""
+         |SELECT
+         |COALESCE(A1.FDATE,A2.FDATE,A3.FDATE) FDATE,
+         |COALESCE(A1.PURDEPTID,A2.PURDEPTID,A3.PURDEPTID) PURDEPTID,
+         |COALESCE(A1.PURERID,A2.PURERID,A3.PURERID) PURERID,
+         |A3.PAYTYPEID,
+         |A1.NUM AS REQNUM,
+         |A2.NUM AS PURNUM,
+         |A2.NUM AS FKDNUM,
+         |A3.FAMOUNT AS FKDAMOUNT
+         |FROM A1
+         |LEFT JOIN A2 ON A1.FDATE = A2.FDATE AND A1.PURDEPTID = A2.PURDEPTID AND A1.PURERID = A2.PURERID
+         |LEFT JOIN A3 ON A3.FDATE = A2.FDATE AND A3.PURDEPTID = A2.PURDEPTID AND A3.PURERID = A2.PURERID
+         |""".stripMargin).createOrReplaceTempView("A4")
+
+    val res = spark.sql(
+      s"""
+         |SELECT A4.FDATE,
+         |	DD.FNAME PURDEPTNAME,
+         |	DB.FNAME BUYERNAME,
+         |	DS.FNAME PAYTYPENAME,
+         |	A4.REQNUM,
+         |	A4.PURNUM,
+         |	A4.FKDNUM,
+         |	A4.FKDAMOUNT
+         |FROM A4
+         |LEFT JOIN ${TableName.DIM_DEPARTMENT} DD ON A4.PURDEPTID = DD.FDEPTID
+         |LEFT JOIN ${TableName.DIM_BUYER} DB ON A4.PURERID = DB.FID
+         |LEFT JOIN ${TableName.DIM_SETTLETYPE} DS ON A4.PAYTYPEID = DS.FID
+         |""".stripMargin)
+    println("num==============" + res.count())
+
+    // 定义 MySQL 的连接信息
+    val conf = Config.load("config.properties")
+    val url = conf.getProperty("database.url")
+    val user = conf.getProperty("database.user")
+    val password = conf.getProperty("database.password")
+    val table = "ads_pur_workload"
+
+
+    // 定义 JDBC 的相关配置信息
+    val props = new Properties()
+    props.setProperty("user", user)
+    props.setProperty("password", password)
+    props.setProperty("driver", "com.mysql.jdbc.Driver")
+
+    // 将 DataFrame 中的数据保存到 MySQL 中(直接把原表删除, 建新表, 很暴力)
+    res.write.mode("overwrite").jdbc(url, table, props)
   }
 }
