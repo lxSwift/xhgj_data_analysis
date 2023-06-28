@@ -68,21 +68,29 @@ object EasMon {
       s"""
          |SELECT km.FNUMBER FNUMBER,ye.FEndBalanceLocal yearbalance
          |FROM ACCOUNTBALANCE  ye
-         |left join ${TableName.DIM_COMPANY} gs on ye.FORGUNITID =gs.fid
-         |left join ${TableName.DIM_ACCOUNTVIEW} km on ye.FACCOUNTID =km.fid
-         |left join ${TableName.DIM_CURRENCY}  bb on ye.FCURRENCYID=bb.fid
-         |where ye.FPERIOD=${yearbegin} and km.FNUMBER in ${kmnumber} and bb.FNUMBER=${bbfnumber}  and ye.FBALTYPE=${yefbaltype} and gs.FNUMBER=${gsfnumber}
+         |left join ${TableName.DIM_COMPANY} gs on ye.FORGUNITID = gs.fid
+         |left join ${TableName.DIM_ACCOUNTVIEW} km on ye.FACCOUNTID = km.fid
+         |left join ${TableName.DIM_CURRENCY}  bb on ye.FCURRENCYID = bb.fid
+         |where ye.FPERIOD=${yearbegin} and km.FNUMBER in ${kmnumber} and bb.FNUMBER=${bbfnumber} and ye.FBALTYPE=${yefbaltype} and gs.FNUMBER=${gsfnumber}
          |""".stripMargin).createOrReplaceTempView("year_b")
 
     val res = spark.sql(
       s"""
-         |SELECT gs.fname_l2 COMPANYNAME,ye.FPERIOD FPERIOD,km.fname_l2 KMNAME,km.FNUMBER KMID,ye.FDEBITLOCAL FDEBITLOCAL,ye.FCREDITLOCAL FCREDITLOCAL,abs(ye.FEndBalanceLocal) FENDBALANCELOCAL,abs(yb.yearbalance) YEARBALANCE
+         |SELECT
+         |  gs.fname_l2 COMPANYNAME,  --公司名称
+         |  ye.FPERIOD FPERIOD,   --期间
+         |  km.fname_l2 KMNAME,   --科目名称
+         |  km.FNUMBER KMID,  --科目编码
+         |  ye.FDEBITLOCAL FDEBITLOCAL,     --本期借方本位币
+         |  ye.FCREDITLOCAL FCREDITLOCAL,   --本期贷方本位币
+         |  abs(ye.FEndBalanceLocal) FENDBALANCELOCAL, --当前月余额
+         |  abs(yb.yearbalance) YEARBALANCE --年初余额
          |FROM ACCOUNTBALANCE  ye
          |left join ${TableName.DIM_COMPANY}  gs on ye.FORGUNITID =gs.fid
          |left join ${TableName.DIM_ACCOUNTVIEW} km on ye.FACCOUNTID =km.fid
          |left join ${TableName.DIM_CURRENCY}  bb on ye.FCURRENCYID=bb.fid
          |left join year_b yb on yb.FNUMBER =km.FNUMBER
-         |where ye.FPERIOD=${inputMonth} and km.FNUMBER in ${kmnumber} and bb.FNUMBER=${bbfnumber}  and ye.FBALTYPE=${yefbaltype} and gs.FNUMBER=${gsfnumber}
+         |where ye.FPERIOD=${inputMonth} and km.FNUMBER in ${kmnumber} and bb.FNUMBER=${bbfnumber} and ye.FBALTYPE=${yefbaltype} and gs.FNUMBER=${gsfnumber}
          |""".stripMargin)
     res.show(10)
 

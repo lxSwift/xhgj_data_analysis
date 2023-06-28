@@ -28,7 +28,7 @@ object Material {
   }
   def runRES(spark: SparkSession): Unit = {
 
-    //先对项目这个字段进行加工
+    //先对项目这个字段进行加工(原字段是'、25、59、64、' 需要对应到项目表获得到)
     spark.sql(
       s"""
          |SELECT
@@ -42,13 +42,55 @@ object Material {
          |GROUP BY c.id
          |""".stripMargin).createOrReplaceTempView("plat")
 
-    //对物料表进行列裁剪
+    //三级类目
+    spark.sql(
+      s"""
+         |SELECT
+         |  id,
+         |  category_id,
+         |  c_erp_code,
+         |  c_name
+         |FROM ODS_XHGJ.ods_mpm_category
+         |WHERE c_level = '3'
+         |""".stripMargin).createOrReplaceTempView("category3")
+
+    //二级类目
+    spark.sql(
+      s"""
+         |SELECT
+         |  id,
+         |  category_id,
+         |  c_erp_code,
+         |  c_name
+         |FROM ODS_XHGJ.ods_mpm_category
+         |WHERE c_level = '2'
+         |""".stripMargin).createOrReplaceTempView("category2")
+
+    //一级类目
+    spark.sql(
+      s"""
+         |SELECT
+         |  id,
+         |  category_id,
+         |  c_erp_code,
+         |  c_name
+         |FROM ODS_XHGJ.ods_mpm_category
+         |WHERE c_level = '1'
+         |""".stripMargin).createOrReplaceTempView("category1")
+
+    //对物料表进行列裁剪,物料主表通过c_isdisabled这个条件过滤掉 NULL和0都是不禁用，1禁用;以及c_state为正常;二级类目不为项目型专区的值;
     val res =spark.sql(
       s"""
          |select
          |  ch.c_code mcode, --物料（编码）
          |  nvl(cg.c_erp_code,'') codefcode, --四级类目（编码）
          |  nvl(cg.c_name,'') codefname, --四级类目（名称）
+         |  nvl(cg3.c_erp_code,'') codemcode3, --三类目（类目）
+         |  nvl(cg3.c_name,'') codemname3, --三类目（名称）
+         |  nvl(cg2.c_erp_code,'') codemcode2, --俩类目（类目）
+         |  nvl(cg2.c_name,'') codemname2, --俩类目（名称）
+         |  nvl(cg1.c_erp_code,'') codemcode1, --一类目（类目）
+         |  nvl(cg1.c_name,'') codemname1, --一类目（名称）
          |  ch.c_shipper shipper, --货主（编码）
          |  ch.c_name mname, --物料（名称）
          |  ch.c_manucode manucode, --型号规格
@@ -137,6 +179,9 @@ object Material {
          |from
          |  ODS_XHGJ.ODS_MPM_CHILD ch
          |left join ODS_XHGJ.ODS_MPM_CATEGORY cg on ch.category_id = cg.id
+         |left join category3 cg3 on cg.category_id = cg3.id
+         |left join category2 cg2 on cg3.category_id = cg2.id
+         |left join category1 cg1 on cg2.category_id = cg1.id
          |left join plat p on ch.id = p.id
          |left join ODS_XHGJ.ODS_MPM_BRAND bd on ch.brand_id=bd.id
          |left join ODS_XHGJ.ODS_MPM_UNIT un on ch.c_unit = un.c_unit
@@ -146,7 +191,12 @@ object Material {
          |left join ODS_XHGJ.ODS_MPM_EMP em2 on ch.c_examiner = em2.id
          |left join ODS_XHGJ.ODS_MPM_EMP em3 on ch.c_create_man = em3.id
          |left join ODS_XHGJ.ODS_MPM_PRODUCT_MANAGER man on ch.product_manager_id = man.id
+         |WHERE nvl(ch.c_isdisabled,'') != '1' and ch.c_state = '1' and (
+         |	ch.c_category_two <> 'ea8ebef464c5c8c90164ca9e2bac0015'
+         |	OR ch.c_category_two IS NULL)
          |""".stripMargin)
+
+
 
     val conf = Config.load("config.properties")
     val url = conf.getProperty("database.url")

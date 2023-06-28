@@ -79,6 +79,10 @@ object ProcureMonitor {
          |LEFT JOIN ${TableName.DIM_PROJECTBASIC} dp ON oere.f_projectno = DP.fid
          |WHERE oer.FAPPLICATIONORGID = '1'
          |""".stripMargin).createOrReplaceTempView("a1")
+
+    /**
+     * 采购订单筛选出万聚的以及单号源单号不为空的数据
+     */
     spark.sql(
       s"""
         |select oep.fbillno,
@@ -109,6 +113,9 @@ object ProcureMonitor {
         |	 WHERE oep.FBILLNO <> '' and oepr.FSRCBILLNO <> '' and oep.fpurchaseorgid = '1'
         |""".stripMargin).createOrReplaceTempView("a2")
 
+    /**
+     * 采购入库单获得收料组织为1万聚且单据以及源单编码不为空
+     */
     spark.sql(
       s"""
         |SELECT oei.fbillno,
@@ -126,6 +133,10 @@ object ProcureMonitor {
         |	WHERE oei.FBILLNO <> '' and oeie.FSRCBILLNO <>'' and oei.FSTOCKORGID = '1'
         |""".stripMargin).createOrReplaceTempView("a3")
 
+    /**
+     * 出库通知单获取批号
+     *
+     */
     spark.sql(
       s"""
          |select oed.fid,
@@ -139,6 +150,9 @@ object ProcureMonitor {
          |	left join ${TableName.DIM_LOTMASTER} dl on oede.flot = dl.flotid
          |""".stripMargin).createOrReplaceTempView("a4")
 
+    /**
+     * 出库单
+     */
     spark.sql(
       s"""
         |select
@@ -152,6 +166,10 @@ object ProcureMonitor {
         |	left join ${TableName.ODS_ERP_OUTSTOCKENTRY_LK} oeol on oeoe.fentryid = oeol.fentryid
         |""".stripMargin).createOrReplaceTempView("a5")
 
+    /**
+     * 出库通知单和出库单之间通过源单, 通知单明细号, 物料号,进行关联
+     * 并根据批料号物料号创建日期申请日期进行分组按照出库单的申请日期进行
+     */
     spark.sql(
       s"""
          |select
@@ -166,6 +184,9 @@ object ProcureMonitor {
          |	left join a5 on a4.fid = a5.fsbillid and a4.fentryid = a5.fsid and a4.fmaterialid = a5.fmaterialid
          |""".stripMargin).createOrReplaceTempView("a6")
 
+    /**
+     *按照批料号和物料号, 并根据出库通知单的申请时间进行时间降序取最新值
+     */
     spark.sql(
       s"""
          |select flotname,

@@ -52,15 +52,13 @@ object EncryptionUtils {
    * @return 脱敏后的字符串
    */
   def desensitize(inputStr: String): String = {
-    val desensitizedStr = inputStr.replaceAll("\\d{4}(?=\\d{4})", "****") // 脱敏规则：替换连续四个数字
+    val desensitizedStr = inputStr.replaceAll("\\d{4}(?=\\d{4})", "1254") // 脱敏规则：替换连续四个数字
     desensitizedStr
   }
 
   def main(args: Array[String]): Unit = {
-    val ao = "123.256"
-    val c = encrypt(ao)
+    val ao = "330381199901011234"
+    val c = desensitize(ao)
     println("encrypt="+c)
-    println("decrypt="+decrypt(c))
-
   }
 }

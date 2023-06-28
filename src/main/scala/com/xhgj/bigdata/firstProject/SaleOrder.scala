@@ -28,14 +28,17 @@ object SaleOrder {
   }
 
   def runRES(spark: SparkSession): Unit = {
-
+    /**
+     * 销售履约订单报表编写;
+     * 订单类型取不为1, 取不是大票的 2即小票 3即供应链订单
+     */
     val res = spark.sql(
       s"""
          |select cast (oes.fcreatedate as varchar(32)) as createdate,
          | cast(dp.fname as varchar(1000)) as projectname,
          | cast(dp.fnumber as varchar(255)) as projectno ,
          | cast(dp.fcustomerorderid as varchar(128)) as customerorderid,
-         | cast(oes.f_paez_text13 as varchar(255)) as salescompany ,
+         | cast(oes.f_paez_text13 as varchar(255)) as salescompany,
          | cast(oes.f_paez_text14 as varchar(128)) as salesdept,
          | cast(du.fname as varchar(64)) as createuser,
          | cast(ds.fname as varchar(64)) as salename,
@@ -62,7 +65,7 @@ object SaleOrder {
          | cast(case when oes.f_paez_checkbox = 1 then '是'
          | 	  when oes.f_paez_checkbox = 0 then '否'
          | 	  else oes.f_paez_checkbox end as varchar(32)) as isdx,
-         | cast(case when (oes.f_paez_checkbox = 1 OR oes.fbillno like '%HZXM%') then "非自营"
+         | cast(case when (oes.f_paez_checkbox = 1 OR dp.fnumber like '%HZXM%') then "非自营"
          |	else "自营" end as varchar(32)) as performanceform,
          | cast(dun.fname as varchar(64)) as unitname,
          | cast(oes.fnote as varchar(1000)) as note,
@@ -82,6 +85,7 @@ object SaleOrder {
          |left join ${TableName.DIM_UNIT} dun on oes.funitid = dun.funitid
          |left join ${TableName.DIM_MATERIAL} dm on oes.fmaterialid = dm.fmaterialid
          |left join ${TableName.DIM_CUSTOMER} dc on oes.fcustid = dc.fcustid
+         |where COALESCE(oes.FORDERTYPE,0) <> 1
          |""".stripMargin)
     println(res.count())
 
