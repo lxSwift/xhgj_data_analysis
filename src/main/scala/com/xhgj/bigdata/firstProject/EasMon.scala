@@ -38,7 +38,7 @@ object EasMon {
     val url = conf.getProperty("database.url")
     val user = conf.getProperty("database.user")
     val password = conf.getProperty("database.password")
-    val tablename = "ads_finance_accountbalance"
+    val tablename = "ads_fin_accountbalance"
     /**
      * 参数说明
      * --ye.FPERIOD为期间, 表示的是其他应收款、应付款和其他应付款的累计时间节点
@@ -47,7 +47,7 @@ object EasMon {
      * --ye.FBALTYPE余额类型, 1－保存后余额，5－过账后余额
      * --gs.FNUMBER公司编码  10503代表的是电商公司
      */
-    //进行列裁剪,先过滤出期间为上个月以及年初和余额类型为过账后余额的数据
+    //进行列裁剪,先过滤出期间为上个月以及年初的数据
     spark.sql(
       s"""
          |select
@@ -58,7 +58,7 @@ object EasMon {
          |  FEndBalanceLocal,
          |  FDEBITLOCAL,
          |  FCREDITLOCAL,
-         |  FEndBalanceLocal,
+         |  FBeginBalanceRpt,
          |  FBALTYPE
          |from ${TableName.ODS_EAS_ACCOUNTBALANCE}
          |where FPERIOD=${inputMonth} or FPERIOD=${yearbegin}
@@ -66,7 +66,7 @@ object EasMon {
     //获取年初余额值
     spark.sql(
       s"""
-         |SELECT km.FNUMBER FNUMBER,ye.FEndBalanceLocal yearbalance
+         |SELECT km.FNUMBER FNUMBER,ye.FBeginBalanceRpt yearBeginBalance
          |FROM ACCOUNTBALANCE  ye
          |left join ${TableName.DIM_COMPANY} gs on ye.FORGUNITID = gs.fid
          |left join ${TableName.DIM_ACCOUNTVIEW} km on ye.FACCOUNTID = km.fid
@@ -83,8 +83,9 @@ object EasMon {
          |  km.FNUMBER KMID,  --科目编码
          |  ye.FDEBITLOCAL FDEBITLOCAL,     --本期借方本位币
          |  ye.FCREDITLOCAL FCREDITLOCAL,   --本期贷方本位币
-         |  abs(ye.FEndBalanceLocal) FENDBALANCELOCAL, --当前月余额
-         |  abs(yb.yearbalance) YEARBALANCE --年初余额
+         |  abs(ye.FEndBalanceLocal) FENDBALANCELOCAL, --当前期末月余额
+         |  abs(ye.FBeginBalanceRpt) FBEGINBALANCERPT, --当前期初月余额
+         |  abs(yb.yearBeginBalance) YEARBEGINBALANCE --年初余额
          |FROM ACCOUNTBALANCE  ye
          |left join ${TableName.DIM_COMPANY}  gs on ye.FORGUNITID =gs.fid
          |left join ${TableName.DIM_ACCOUNTVIEW} km on ye.FACCOUNTID =km.fid
@@ -102,10 +103,10 @@ object EasMon {
 
     // 将 DataFrame 中的数据保存到 MySQL 中(直接把原表删除, 建新表, 很暴力)
     res.write.mode("overwrite")
-      .option("createTableColumnTypes", "COMPANYNAME varchar(255),FPERIOD varchar(10),KMNAME varchar(255),KMID varchar(25),FDEBITLOCAL decimal(19,4),FCREDITLOCAL decimal(19,4),FENDBALANCELOCAL decimal(19,4),YEARBALANCE decimal(19,4)") // 明确指定 MySQL 数据库中字段的数据类型
+      .option("createTableColumnTypes", "COMPANYNAME varchar(255),FPERIOD varchar(10),KMNAME varchar(255),KMID varchar(25),FDEBITLOCAL decimal(19,4),FCREDITLOCAL decimal(19,4),FENDBALANCELOCAL decimal(19,4),FBEGINBALANCERPT decimal(19,4),YEARBEGINBALANCE decimal(19,4)") // 明确指定 MySQL 数据库中字段的数据类型
       .option("batchsize", "10000")
       .option("truncate", "false")
-      .option("jdbcType", s"COMPANYNAME=${VARCHAR},FPERIOD=${VARCHAR},KMNAME=${VARCHAR},KMID=${VARCHAR},FDEBITLOCAL=${DECIMAL},FCREDITLOCAL=${DECIMAL},FENDBALANCELOCAL=${DECIMAL},YEARBALANCE=${DECIMAL}") // 显式指定 SparkSQL 中的数据类型和 MySQL 中的映射关系
+      .option("jdbcType", s"COMPANYNAME=${VARCHAR},FPERIOD=${VARCHAR},KMNAME=${VARCHAR},KMID=${VARCHAR},FDEBITLOCAL=${DECIMAL},FCREDITLOCAL=${DECIMAL},FENDBALANCELOCAL=${DECIMAL},FBEGINBALANCERPT=${DECIMAL},YEARBEGINBALANCE=${DECIMAL}") // 显式指定 SparkSQL 中的数据类型和 MySQL 中的映射关系
       .jdbc(url, tablename, props)
   }
 

@@ -211,7 +211,7 @@ object ProcureMonitor {
          |	from a7
          |	where fnum = 1
          |""".stripMargin).createOrReplaceTempView("a8")
-
+    //取订单不为空的值
     spark.sql(
       s"""
          |select
@@ -262,9 +262,9 @@ object ProcureMonitor {
          |	datediff(from_unixtime(unix_timestamp(a1.fapplicationdate),'yyyy-MM-dd'),from_unixtime(unix_timestamp(a1.fcreatedate),'yyyy-MM-dd')) reqfordate,
          |	datediff(from_unixtime(unix_timestamp(a2.fapprovedate),'yyyy-MM-dd'),from_unixtime(unix_timestamp(a1.fapprovedate),'yyyy-MM-dd')) poofordate
          |from a1 left join a2 on a1.fid = a2.fsbillid
-         |AND A1.fentryid = A2.fsid
+         |AND a1.fentryid = a2.fsid
          |left join a3 on a2.fid = a3.fsbillid
-         |AND A2.fentryid = a3.fsid
+         |AND a2.fentryid = a3.fsid
          |left join a8 on a8.flotname = a3.flotname and a8.fmaterialid = a3.fmaterialid
          |left join a9 on a1.fsid = a9.fentryid and a1.fsbillid = a9.fid
          |""".stripMargin)
