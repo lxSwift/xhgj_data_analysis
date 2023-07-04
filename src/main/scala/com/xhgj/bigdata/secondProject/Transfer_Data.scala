@@ -38,7 +38,7 @@ object Transfer_Data {
          |WHERE FSETTLEORGID IN ('1','481351') and FDOCUMENTSTATUS = 'C'
          |""".stripMargin).createOrReplaceTempView("t1")
 
-    //销售订单明细先聚合,由于销售订单下面可能有相同物料,这个时候取最大的F_PAEZ_PRICE即可
+    //销售订单明细先聚合,由于销售订单下面可能有相同物料,这个时候取最大的F_PAEZ_PRICE即可,物料编码不能直接拿FMATERIALID,要去物料表去关联
     spark.sql(
       s"""
         |SELECT
@@ -47,15 +47,16 @@ object Transfer_Data {
         |,OESE.FENTRYID
         |,OES.FPURTYPE
         |,OES.FSALEORGID,
-        |OESE.FMATERIALID
+        |C.FNUMBER
         |,OESF.FPRICE
         |,OESE.FNOTE,
         |CAST(OESE.F_PAEZ_PRICE AS DECIMAL(18,2)) AS F_PAEZ_PRICE,
         |1+CAST(OESF.FTAXRATE AS DECIMAL(18,2))/100 AS FTAXRATE,
-        |row_number() over(partition by OES.FBILLNO,OESE.FMATERIALID order by F_PAEZ_PRICE desc) as rownum
+        |row_number() over(partition by OES.FBILLNO,C.FNUMBER order by OESE.F_PAEZ_PRICE desc) as rownum
         |FROM ${TableName.ODS_ERP_SALORDER} OES
         |LEFT JOIN ${TableName.ODS_ERP_SALORDERENTRY} OESE ON OES.FID = OESE.FID
         |LEFT JOIN ${TableName.ODS_ERP_SALORDERENTRY_F} OESF ON OESE.FENTRYID = OESF.FENTRYID
+        |LEFT JOIN ${TableName.DIM_MATERIAL} C ON OESE.FMATERIALID = C.FMATERIALID
         |""".stripMargin).createOrReplaceTempView("SALORDER_L")
 
     spark.sql(
@@ -74,6 +75,8 @@ object Transfer_Data {
          |  A.FBILLNO,--增值税发票号
          |  A_1.FPRICEQTY,--数量
          |  A_1.FTAXPRICE,--含税单价
+         |  C.FNUMBER,
+         |  A_1.FMATERIALID,
          |  A_1.FPRICE AS FPRICE,--单价
          |  A_1.FENTRYTAXRATE,--税率(%)
          |  A_1.FTAXAMOUNTFOR,--税额
@@ -89,25 +92,14 @@ object Transfer_Data {
          |  A_1.FMATERIALID,
          |  A_1.FPRICEUNITID,
          |  A_1.F_PAEZ_BASE2,
-         |  A_1.FPROJECTNO,
-         |  A.FCUSTOMERID,
-         |  L.FMATERIALID FMATERIALID_L
+         |  nvl(A_1.F_PXDF_TEXT,'') F_PXDF_TEXT,
+         |  nvl(A_1.F_PXDF_TEXT1,'') F_PXDF_TEXT1,
+         |  A.FCUSTOMERID
          |from t1 A
          |JOIN ${TableName.ODS_ERP_RECEIVABLEENTRY} A_1 ON A.FID = A_1.FID
-         |LEFT JOIN SALORDER L ON A_1.FORDERNUMBER = L.FBILLNO AND A_1.FMATERIALID = L.FMATERIALID
+         |JOIN ${TableName.DIM_MATERIAL} C ON A_1.FMATERIALID = C.FMATERIALID
+         |LEFT JOIN SALORDER L ON A_1.FORDERNUMBER = L.FBILLNO AND C.FNUMBER = L.FNUMBER
          |""".stripMargin).createOrReplaceTempView("result")
-
-
-//    val result = spark.sql(
-//      s"""
-//         |SELECT
-//         |  FBILLNO,
-//         |  FORDERNUMBER,FMATERIALID
-//         |FROM result
-//         |where rownum = 2
-//         |""".stripMargin)
-//      println("count="+result.count())
-//      result.show(50)
 
     val result = spark.sql(
       s"""
@@ -116,7 +108,7 @@ object Transfer_Data {
          |  A.FBILLNO,--增值税发票号
          |  B.fname CUSTOMERNAME,--客户
          |  "已审核" AS FDOCUMENTSTATUS,--单据状态
-         |  C.fnumber MATERIALID,--物料编码
+         |  A.fnumber MATERIALID,--物料编码
          |  D.FNAME BRANDNAME,--品牌
          |  C.fname MATERIALNAME,--商品名称
          |  C.FSPECIFICATION SPECIFICATION,--规格
@@ -136,13 +128,13 @@ object Transfer_Data {
          |  A.FORDERNUMBER AS ORDERNUMBER,--销售单订单号
          |  A.TERMINALPRICE AS TERMINALPRICE, --终端不含税单价
          |  cast(A.TERMINALPRICE*NVL(A.FPRICEQTY,0) as decimal(18,2)) AS TERMINALSUM,--终端不含税金额
-         |  nvl(M.FNUMBER,'') AS PROJECTNUMBER,--项目编号
-         |  nvl(M.FNAME,'') AS PROJECTNAME,--项目名称
+         |  A.F_PXDF_TEXT AS PROJECTNUMBER,--项目编号
+         |  A.F_PXDF_TEXT1 AS PROJECTNAME,--项目名称
          |  A.FCOSTAMTSUM AS COSTAMTSUM,--成本去税总金额
          |  CAST(A.FNOTAXAMOUNTFOR AS DECIMAL(18,2)) - CAST(A.FCOSTAMTSUM AS DECIMAL(18,2)) AS MAOLI--毛利
          |FROM result A
          |LEFT JOIN ${TableName.DIM_CUSTOMER} B ON A.FCUSTOMERID = B.fcustid
-         |LEFT JOIN ${TableName.DIM_MATERIAL} C ON A.FMATERIALID = C.FMATERIALID
+         |JOIN ${TableName.DIM_MATERIAL} C ON A.FMATERIALID = C.FMATERIALID
          |LEFT JOIN ${TableName.DIM_PAEZ_ENTRY100020} D ON C.F_PAEZ_BASE = D.FID
          |LEFT JOIN ${TableName.DIM_UNIT} E ON A.FPRICEUNITID = E.funitid
          |LEFT JOIN ${TableName.DIM_CUST100501} F ON C.f_khr = F.FID
@@ -151,13 +143,10 @@ object Transfer_Data {
          |LEFT JOIN ${TableName.DIM_DEPARTMENT} I ON C.F_PAEZ_BASE1 = I.fdeptid
          |LEFT JOIN ${TableName.DIM_SALEMAN} J ON A.F_PAEZ_BASE2 = J.FID
          |LEFT JOIN ${TableName.DIM_EMPINFO} K ON J.FNUMBER = K.FNUMBER
-         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} M ON A.FPROJECTNO = M.FID
          |""".stripMargin)
-
 
     println("result:" + result.count())
     val table = "ads_aat_transferdata"
-
     MysqlConnect.overrideTable(table,result)
 
   }
