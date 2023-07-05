@@ -54,7 +54,8 @@ object ProcureMonitor {
          | 	 		 else oer.fdocumentstatus end as fdocumentstatus,
          | 	 	do1.fname reqorgname,
          | 	 	oer.fapplicationdate ,
-         | 	 	dp.fname f_projectno,
+         | 	 	oere.F_PXDF_TEXT1 f_projectno,
+         |    dp.fname projectname,
          | 	 	dm.fnumber materno,
          | 	 	dm.fname matername,
          | 	 	dm.f_paez_text brandname,
@@ -81,38 +82,50 @@ object ProcureMonitor {
          | WHERE oer.FAPPLICATIONORGID = '1'
          |""".stripMargin).createOrReplaceTempView("a1")
 
+
+    spark.sql(
+      s"""
+         |SELECT STAFFNAME,DEPTNAME FROM (
+         |SELECT DS.FNAME STAFFNAME,
+         |	DD.FNAME DEPTNAME,
+         |	ROW_NUMBER() OVER(PARTITION BY DS.FNAME ORDER BY DD.FCREATEDATE DESC) RN
+         |FROM ${TableName.DIM_STAFF} DS
+         |LEFT JOIN ${TableName.DIM_DEPARTMENT} DD ON DS.FDEPTID = DD.FDEPTID
+         |WHERE DS.FUSEORGID = 1
+         |) DSDD WHERE RN = 1
+         |""".stripMargin).createOrReplaceTempView("STAFF")
     /**
      * 采购订单筛选出万聚的以及单号源单号不为空的数据
      */
     spark.sql(
       s"""
-        |select oep.fbillno,
-        |	oep.fcreatedate,
-        |	oep.fapprovedate,
-        |	oepe.fmaterialid,
-        |	oepr.fsrcbillno,
-        |	case when oep.fdocumentstatus = 'Z' then '暂存'
-        | 		 when oep.fdocumentstatus = 'A' then '创建'
-        | 		 when oep.fdocumentstatus = 'B' then '审核中'
-        | 		 when oep.fdocumentstatus = 'C' then '已审核'
-        | 		 when oep.fdocumentstatus = 'D' then '重新审核'
-        | 		 else oep.fdocumentstatus end as fdocumentstatus,
-        |	ds.fname suppliername ,
-        |	dd.fname purdeptnmea,
-        |	db.fname purchasername,
-        |	oepl.fsbillid,
-        |	oepl.fsid,
-        |	oep.fid,
-        |	oepe.fentryid,
-        |	oepe.FQTY as purqty
-        |from ${TableName.ODS_ERP_POORDER} oep
-        |left join ${TableName.ODS_ERP_POORDERENTRY} oepe on oep.fid = oepe.fid
-        |left join ${TableName.ODS_ERP_POORDERENTRY_R} oepr on oepe.fentryid = oepr.fentryid
-        |left join ${TableName.ODS_ERP_POORDERENTRY_LK} oepl on oepl.fentryid = oepe.fentryid
-        |LEFT JOIN ${TableName.DIM_DEPARTMENT} dd on oep.fpurchasedeptid = dd.fdeptid
-        |LEFT JOIN ${TableName.DIM_BUYER} db on oep.fpurchaserid = db.fid
-        |LEFT JOIN ${TableName.DIM_SUPPLIER} ds ON oep.fsupplierid = ds.fsupplierid
-        | WHERE oep.FBILLNO <> '' and oepr.FSRCBILLNO <> '' and oep.fpurchaseorgid = '1'
+        |SELECT OEP.FBILLNO,
+        |	OEP.FCREATEDATE,
+        |	OEP.FAPPROVEDATE,
+        |	OEPE.FMATERIALID,
+        |	OEPR.FSRCBILLNO,
+        |	CASE WHEN OEP.FDOCUMENTSTATUS = 'Z' THEN '暂存'
+        | 		 WHEN OEP.FDOCUMENTSTATUS = 'A' THEN '创建'
+        | 		 WHEN OEP.FDOCUMENTSTATUS = 'B' THEN '审核中'
+        | 		 WHEN OEP.FDOCUMENTSTATUS = 'C' THEN '已审核'
+        | 		 WHEN OEP.FDOCUMENTSTATUS = 'D' THEN '重新审核'
+        | 		 ELSE OEP.FDOCUMENTSTATUS END AS FDOCUMENTSTATUS,
+        |	DS.FNAME SUPPLIERNAME ,
+        |	STAFF.DEPTNAME PURDEPTNMEA,
+        |	STAFF.STAFFNAME PURCHASERNAME,
+        |	OEPL.FSBILLID,
+        |	OEPL.FSID,
+        |	OEP.FID,
+        |	OEPE.FENTRYID,
+        |	OEPE.FQTY AS PURQTY
+        |FROM ${TableName.ODS_ERP_POORDER} OEP
+        |LEFT JOIN ${TableName.ODS_ERP_POORDERENTRY} OEPE ON OEP.FID = OEPE.FID
+        |LEFT JOIN ${TableName.ODS_ERP_POORDERENTRY_R} OEPR ON OEPE.FENTRYID = OEPR.FENTRYID
+        |LEFT JOIN ${TableName.ODS_ERP_POORDERENTRY_LK} OEPL ON OEPL.FENTRYID = OEPE.FENTRYID
+        |LEFT JOIN ${TableName.DIM_USER} DU ON OEP.FCREATORID = DU.FUSERID
+        |LEFT JOIN STAFF ON STAFF.STAFFNAME = DU.FNAME
+        |LEFT JOIN ${TableName.DIM_SUPPLIER} DS ON OEP.FSUPPLIERID = DS.FSUPPLIERID
+        | WHERE OEP.FBILLNO <> '' AND OEPR.FSRCBILLNO <> '' AND OEP.FPURCHASEORGID = '1'
         |""".stripMargin).createOrReplaceTempView("a2")
 
     /**
@@ -267,7 +280,8 @@ object ProcureMonitor {
          | 	a5.noticeqty,
          | 	a7.fbillno as outstockno,
          | 	a8.saleqty,
-         |  a7.outstockqty
+         |  a7.outstockqty,
+         |  a1.projectname
          | from a1 left join a2 on a1.fid = a2.fsbillid
          | AND A1.fentryid = A2.fsid
          | left join a3 on a2.fid = a3.fsbillid
@@ -276,6 +290,7 @@ object ProcureMonitor {
          | left join a7 on a7.flotname = a3.flotname and a7.fmaterialid = a3.fmaterialid
          | left join a8 on a1.fsid = a8.fentryid and a1.fsbillid = a8.fid
          |""".stripMargin)
+    println("result=" + res.count())
     // 定义 MySQL 的连接信息
     val conf = Config.load("config.properties")
     val url = conf.getProperty("database.url")

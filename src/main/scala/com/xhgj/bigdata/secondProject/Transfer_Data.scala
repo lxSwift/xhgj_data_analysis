@@ -32,6 +32,7 @@ object Transfer_Data {
          |  FDATE,
          |  FBILLNO,
          |  FCUSTOMERID,
+         |  FSETTLEORGID,
          |  FID
          |FROM
          |  ${TableName.ODS_ERP_RECEIVABLE}
@@ -73,6 +74,7 @@ object Transfer_Data {
          |SELECT
          |  A.FDATE,--业务日期
          |  A.FBILLNO,--增值税发票号
+         |  A.FSETTLEORGID,--销售组织
          |  A_1.FPRICEQTY,--数量
          |  A_1.FTAXPRICE,--含税单价
          |  C.FNUMBER,
@@ -82,7 +84,7 @@ object Transfer_Data {
          |  A_1.FTAXAMOUNTFOR,--税额
          |  A_1.FALLAMOUNTFOR,--含税金额
          |  A_1.FNOTAXAMOUNTFOR,--不含税金额
-         |  A_1.FORDERNUMBER,--销售单订单号
+         |  A_1.F_PAEZ_Text,--销售单订单号
          |  CASE
          |    WHEN L.FPURTYPE='B' OR L.FSALEORGID='554744' THEN nvl(L.FPRICE,0)
          |    WHEN L.FSALEORGID IN ('1','481351') AND NVL(L.FNOTE ,'') != '渠道中心' THEN cast(NVL(L.F_PAEZ_PRICE,0)/NVL(L.FTAXRATE,1) as decimal(18,2))
@@ -98,7 +100,7 @@ object Transfer_Data {
          |from t1 A
          |JOIN ${TableName.ODS_ERP_RECEIVABLEENTRY} A_1 ON A.FID = A_1.FID
          |JOIN ${TableName.DIM_MATERIAL} C ON A_1.FMATERIALID = C.FMATERIALID
-         |LEFT JOIN SALORDER L ON A_1.FORDERNUMBER = L.FBILLNO AND C.FNUMBER = L.FNUMBER
+         |LEFT JOIN SALORDER L ON A_1.F_PAEZ_Text = L.FBILLNO AND C.FNUMBER = L.FNUMBER
          |""".stripMargin).createOrReplaceTempView("result")
 
     val result = spark.sql(
@@ -107,6 +109,7 @@ object Transfer_Data {
          |  A.FDATE,--业务日期
          |  A.FBILLNO,--增值税发票号
          |  B.fname CUSTOMERNAME,--客户
+         |  L.FNAME SALORGNAME,--销售组织
          |  "已审核" AS FDOCUMENTSTATUS,--单据状态
          |  A.fnumber MATERIALID,--物料编码
          |  D.FNAME BRANDNAME,--品牌
@@ -125,7 +128,7 @@ object Transfer_Data {
          |  I.FNAME AS DEPARTMENTNAME, --采购部门
          |  J.FNAME AS SALENAME, --明细销售员
          |  K.F_PAEZ_TEXT AS SALCOMPANY, --销售员所属公司
-         |  A.FORDERNUMBER AS ORDERNUMBER,--销售单订单号
+         |  A.F_PAEZ_Text AS ORDERNUMBER,--销售单号
          |  A.TERMINALPRICE AS TERMINALPRICE, --终端不含税单价
          |  cast(A.TERMINALPRICE*NVL(A.FPRICEQTY,0) as decimal(18,2)) AS TERMINALSUM,--终端不含税金额
          |  A.F_PXDF_TEXT AS PROJECTNUMBER,--项目编号
@@ -143,6 +146,7 @@ object Transfer_Data {
          |LEFT JOIN ${TableName.DIM_DEPARTMENT} I ON C.F_PAEZ_BASE1 = I.fdeptid
          |LEFT JOIN ${TableName.DIM_SALEMAN} J ON A.F_PAEZ_BASE2 = J.FID
          |LEFT JOIN ${TableName.DIM_EMPINFO} K ON J.FNUMBER = K.FNUMBER
+         |LEFT JOIN ${TableName.DIM_ORGANIZATIONS} L ON A.FSETTLEORGID = L.forgid
          |""".stripMargin)
 
     println("result:" + result.count())

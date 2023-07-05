@@ -1,7 +1,9 @@
 package com.xhgj.bigdata.util
 
+import org.apache.spark.sql.catalog.Column
 import org.apache.spark.sql.{DataFrame, SaveMode}
 
+import java.sql.Types.{VARCHAR,DECIMAL,INTEGER}
 import java.sql.{DriverManager, Statement}
 import java.util.Properties
 
@@ -33,6 +35,15 @@ object MysqlConnect {
    */
   def overrideTable(tableName: String,result: DataFrame): Unit = {
     result.write.mode(SaveMode.Overwrite).jdbc(url, tableName, props)
+  }
+
+  def overrideTableDateType(tableName: String,result: DataFrame,column: String,typestr:String)={
+    result.write.mode("overwrite")
+      .option("createTableColumnTypes", column) // 明确指定 MySQL 数据库中字段的数据类型
+      .option("batchsize", "10000")
+      .option("truncate", "false")
+      .option("jdbcType", typestr) // 显式指定 SparkSQL 中的数据类型和 MySQL 中的映射关系
+      .jdbc(url, tableName, props)
   }
 
   /**
