@@ -28,6 +28,9 @@ object PayAmount_Status {
   }
   def runRES(spark: SparkSession)={
     //应收单相关信息
+    /**
+     * 回款状态不包括内部客户
+     */
     spark.sql(
       s"""
          |select
@@ -57,6 +60,24 @@ object PayAmount_Status {
          |group by FPROJECTNO,PRONAME
          |""".stripMargin).createOrReplaceTempView("sktable")
 
+    //找到项目收款最新的业务日期
+    spark.sql(
+      s"""
+         |select
+         |  FPROJECTNO,
+         |  fdate
+         |from (
+         |SELECT
+         |  FPROJECTNO,
+         |  fdate,
+         |  ROW_NUMBER() OVER(PARTITION BY FPROJECTNO ORDER BY FDATE DESC) AS RANKNUM
+         |FROM
+         |  ${TableName.DWS_RECE_PAYAMOUNTGET}
+         |where FPROJECTNO is not null and
+         | fnumber_cus NOT IN('XH00001','XH00002','XH00003','XH00004','XH00005','XH00006','XH00007','XH00008','XH00009','XH00010','XH00011','XH00012','XH00013','XH00014','XH00015','XH00016','XH00017','XH00018','XH00019','XH00020','XH00021','XH00022','XH00023','XH00024','XH00025','XH00026','XH00027','XH00028','XH00029','XH00030','XH00031','XH00032','XH00033','XH00034','XH00035','XH00036','XH00037','XH00038','XH00039','XH00040','XH00041','XH00042','XH00043','XH00044','XH00045','XH00046','XH00047','XH00048','XH00049','XH00050','XH00051','XH00052','XH00053','XH00054','XH00055','XH00056','XH00057','XH00058','XH00059','XH00060','XH00061','XH00062','XH00063','XH00064','XH00065','XH00180','XH00192','XH00196','XH00197','XH00198','XH00199','XH00200','XH00201','XH00202','XH00203','XH00204','XH00205','XH00206','XH00207','XH00208','XH00209','XH00210','XH00211','XH00212','XH00213','XH00214','XH00215','DPXHNB00001','DPXHNB00002')
+         | ) a where a.RANKNUM =1
+         |""".stripMargin).createOrReplaceTempView("datenew")
+
     //获取最终状态并保存至mysql
     val res = spark.sql(
       s"""
@@ -72,10 +93,12 @@ object PayAmount_Status {
          |   fnumber_sal,
          |   ys_amount,
          |   nvl(sk_amount,0) sk_amount,
-         |   ys_amount-nvl(sk_amount,0) diff_amount
+         |   ys_amount-nvl(sk_amount,0) diff_amount,
+         |   nvl(c.fdate,'') fdate
          |from
          |  receivable a
          |left join sktable b on a.prono=b.FPROJECTNO
+         |left join datenew c on a.prono=c.FPROJECTNO
          |""".stripMargin)
 
     // 定义 MySQL 的连接信息
