@@ -1,6 +1,6 @@
 package com.xhgj.bigdata.firstProject
 
-import com.xhgj.bigdata.util.TableName
+import com.xhgj.bigdata.util.{MysqlConnect, TableName}
 import org.apache.spark.sql.SparkSession
 
 /**
@@ -25,7 +25,7 @@ object Ods2Dw {
   }
   def runRES(spark: SparkSession): Unit = {
     import spark.implicits._
-    //采购申请单表DWD_PUR_REQUISITION
+//    采购申请单表DWD_PUR_REQUISITION
     spark.sql(
       s"""
          |INSERT OVERWRITE TABLE ${TableName.DWD_PUR_REQUISITION}
@@ -241,5 +241,41 @@ object Ods2Dw {
          |LEFT JOIN ${TableName.ODS_ERP_SALORDERENTRY} OESE ON OES.FID = OESE.FID
          |LEFT JOIN ${TableName.ODS_ERP_SALORDERENTRY_F} OESF ON OESE.FENTRYID = OESF.FENTRYID
          |""".stripMargin)
+
+
+    //OA的人员信息表
+
+    spark.sql(
+      s"""
+         |SELECT
+         |  *
+         |FROM
+         |  ${TableName.ODS_OA_ORG_ELEMENT} A
+         |WHERE
+         |  fd_org_type in ('1','2') and fd_is_available !=0
+         |""".stripMargin).createOrReplaceTempView("ORGELE")
+
+
+    val res = spark.sql(
+      s"""
+         |SELECT
+         |  ORG.fd_name deptname,
+         |  ORG_L.fd_name parentname,
+         |  B.fd_name name,
+         |  B.fd_name_pinyin name_pinyin,
+         |  A.fd_mobile_no mobile,
+         |  A.fd_email email,
+         |  ORG.fd_id deptid,
+         |  ORG_L.fd_id parentid
+         |FROM ORGELE ORG
+         |LEFT JOIN ORGELE ORG_L ON ORG.fd_parentid=ORG_L.fd_id
+         |LEFT JOIN ${TableName.ODS_OA_ORG_ELEMENT} B ON ORG.fd_id = B.fd_parentid and B.fd_org_type ='8' and B.fd_is_available != 0
+         |LEFT JOIN ${TableName.ODS_OA_ORG_PERSON} A ON A.fd_id = B.fd_id
+         |""".stripMargin)
+
+    val table = "ads_oa_staff"
+    MysqlConnect.overrideTable(table,res)
+
+
   }
 }

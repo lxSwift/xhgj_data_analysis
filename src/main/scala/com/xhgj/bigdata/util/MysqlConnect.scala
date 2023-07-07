@@ -21,7 +21,7 @@ object MysqlConnect {
   val url = conf.getProperty("database.url")
   val user = conf.getProperty("database.user")
   val password = conf.getProperty("database.password")
-  val driver = "com.mysql.jdbc.Driver"
+  val driver = "com.mysql.cj.jdbc.Driver"
   // 定义 JDBC 的相关配置信息
   val props = new Properties()
   props.setProperty("user", user)

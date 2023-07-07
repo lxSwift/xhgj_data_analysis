@@ -79,7 +79,7 @@ object SalePerformBoard {
     val props = new Properties()
     props.setProperty("user", user)
     props.setProperty("password", password)
-    props.setProperty("driver", "com.mysql.jdbc.Driver")
+    props.setProperty("driver", "com.mysql.cj.jdbc.Driver")
 
     // 将 DataFrame 中的数据保存到 MySQL 中(直接把原表删除, 建新表, 很暴力)
     res.write.mode("overwrite").jdbc(url, table, props)

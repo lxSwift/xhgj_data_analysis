@@ -251,7 +251,7 @@ object ReceivableBillboard {
          |	AND DWP.PROJECTSHORTNAME != '中核集团' AND SUBSTRING(OER.FCREATEDATE,1,4) = YEAR(CURRENT_DATE())
          |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME
          |""".stripMargin).createOrReplaceTempView("A7")
-////    初始化
+//    初始化
 //    val result =spark.sql(
 //      s"""
 //         |SELECT A1.SALENAME,
