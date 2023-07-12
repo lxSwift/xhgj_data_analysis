@@ -85,7 +85,7 @@ object PayAmount_Status {
          |  a.prono,
          |  a.proname,
          |  case
-         |    when ys_amount-nvl(sk_amount,0) <= 0 and ys_amount != 0 and nvl(sk_amount,0) != 0 then "全部回款"
+         |    when ys_amount-nvl(sk_amount,0) <= 0 and ys_amount != 0 and nvl(sk_amount,0) != 0 then "已回款"
          |    when ys_amount-nvl(sk_amount,0) > 0 and (ys_amount-nvl(sk_amount,0)) < ys_amount then "部分回款"
          |    when nvl(sk_amount,0)=0 then "未回款"
          |    else "其他状态" end as paystatus,

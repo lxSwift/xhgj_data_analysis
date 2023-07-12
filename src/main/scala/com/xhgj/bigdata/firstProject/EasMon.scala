@@ -83,9 +83,9 @@ object EasMon {
          |  km.FNUMBER KMID,  --科目编码
          |  ye.FDEBITLOCAL FDEBITLOCAL,     --本期借方本位币
          |  ye.FCREDITLOCAL FCREDITLOCAL,   --本期贷方本位币
-         |  abs(ye.FEndBalanceLocal) FENDBALANCELOCAL, --当前期末月余额
-         |  abs(ye.FBeginBalanceRpt) FBEGINBALANCERPT, --当前期初月余额
-         |  abs(yb.yearBeginBalance) YEARBEGINBALANCE --年初余额
+         |  ye.FEndBalanceLocal FENDBALANCELOCAL, --当前期末月余额
+         |  ye.FBeginBalanceRpt FBEGINBALANCERPT, --当前期初月余额
+         |  yb.yearBeginBalance YEARBEGINBALANCE --年初余额
          |FROM ACCOUNTBALANCE  ye
          |left join ${TableName.DIM_COMPANY}  gs on ye.FORGUNITID =gs.fid
          |left join ${TableName.DIM_ACCOUNTVIEW} km on ye.FACCOUNTID =km.fid

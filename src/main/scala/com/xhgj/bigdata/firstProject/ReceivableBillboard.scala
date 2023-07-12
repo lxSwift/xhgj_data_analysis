@@ -36,7 +36,7 @@ object ReceivableBillboard {
         |	,MIN(SUBSTRING(OER.FCREATEDATE,1,10)) AS BUSINESSDATE	--业务日期
         |	,DP.FNUMBER	PROJECTNO	--项目编号
         |	,DP.FNAME PROJECTNAME		--项目名称
-        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE 'HZXM%') THEN '非自营'
+        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END AS PERFORMANCEFORM		--履约形式
         |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
         |		ELSE '其他' END AS PROJECTSHORTNAME		--项目简称
@@ -53,7 +53,7 @@ object ReceivableBillboard {
         |GROUP BY DS.FNAME
         |	,DP.FNUMBER
         |	,DP.FNAME
-        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE 'HZXM%') THEN '非自营'
+        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END
         |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
         |		ELSE '其他' END
@@ -62,7 +62,7 @@ object ReceivableBillboard {
         |	,MIN(SUBSTRING(OER.FCREATEDATE,1,10)) AS BUSINESSDATE	--业务日期
         |	,DP.FNUMBER	PROJECTNO		--项目编号
         |	,DP.FNAME PROJECTNAME		--项目名称
-        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE 'HZXM%') THEN '非自营'
+        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END AS PERFORMANCEFORM		--履约形式
         |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
         |		ELSE '其他' END AS PROJECTSHORTNAME		--项目简称
@@ -79,7 +79,7 @@ object ReceivableBillboard {
         |GROUP BY DS.FNAME
         |	,DP.FNUMBER
         |	,DP.FNAME
-        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE 'HZXM%') THEN '非自营'
+        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END
         |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
         |		ELSE '其他' END
@@ -111,7 +111,7 @@ object ReceivableBillboard {
          |	,MIN(SUBSTRING(OER.F_PXDF_DATE,1,10)) AS BUSINESSDATE	--业务日期(发票日期)
          |	,DP.FNUMBER	PROJECTNO	--项目编号
          |	,DP.FNAME PROJECTNAME		--项目名称
-         |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE 'HZXM%') THEN '非自营'
+         |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
          |		ELSE '自营' END AS PERFORMANCEFORM		--履约形式
          |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
          |		ELSE '其他' END AS PROJECTSHORTNAME		--项目简称
@@ -128,7 +128,7 @@ object ReceivableBillboard {
          |GROUP BY DS.FNAME
          |	,DP.FNUMBER
          |	,DP.FNAME
-         |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE 'HZXM%') THEN '非自营'
+         |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
          |		ELSE '自营' END
          |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
          |		ELSE '其他' END
@@ -137,7 +137,7 @@ object ReceivableBillboard {
          |	,MIN(SUBSTRING(OER.F_PXDF_DATE,1,10)) AS BUSINESSDATE	--业务日期
          |	,DP.FNUMBER	PROJECTNO		--项目编号
          |	,DP.FNAME PROJECTNAME		--项目名称
-         |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE 'HZXM%') THEN '非自营'
+         |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
          |		ELSE '自营' END AS PERFORMANCEFORM		--履约形式
          |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
          |		ELSE '其他' END AS PROJECTSHORTNAME		--项目简称
@@ -154,7 +154,7 @@ object ReceivableBillboard {
          |GROUP BY DS.FNAME
          |	,DP.FNUMBER
          |	,DP.FNAME
-         |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE 'HZXM%') THEN '非自营'
+         |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
          |		ELSE '自营' END
          |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
          |		ELSE '其他' END
@@ -334,6 +334,8 @@ object ReceivableBillboard {
 
 //    val table = "ads_fin_receivableboard"
 //    MysqlConnect.overrideTable(table,result)
+
+
     //先删除前一天所属月份的数据
     val deleteQuery = s"DELETE FROM ads_xhgj.ads_fin_receivableboard WHERE UPDATEMONTH = DATE_FORMAT(CURRENT_DATE() - INTERVAL 1 DAY, '%Y-%m')"
     MysqlConnect.executeUpdateTable(deleteQuery)

@@ -1,6 +1,6 @@
 package com.xhgj.bigdata.otherProject
 
-import com.xhgj.bigdata.util.Config
+import com.xhgj.bigdata.util.{Config, MysqlConnect}
 import org.apache.spark.sql.SparkSession
 
 import java.util.Properties
@@ -196,23 +196,9 @@ object Material {
          |	OR ch.c_category_two IS NULL)
          |""".stripMargin)
 
-
-
-    val conf = Config.load("config.properties")
-    val url = conf.getProperty("database.url")
-    val user = conf.getProperty("database.user")
-    val password = conf.getProperty("database.password")
     val table = "ads_oth_material"
 
-
-    // 定义 JDBC 的相关配置信息
-    val props = new Properties()
-    props.setProperty("user", user)
-    props.setProperty("password", password)
-    props.setProperty("driver", "com.mysql.cj.jdbc.Driver")
-
-    // 将 DataFrame 中的数据保存到 MySQL 中(直接把原表删除, 建新表, 很暴力)
-    res.write.mode("overwrite").jdbc(url, table, props)
+    MysqlConnect.overrideTable(table, res)
   }
 
 }

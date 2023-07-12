@@ -17,7 +17,7 @@ object SalePerformBoard {
   def main(args: Array[String]): Unit = {
     val spark = SparkSession
       .builder()
-      .appName("Spark task job ProcureMonitor.scala")
+      .appName("Spark task job SalePerformBoard.scala")
       .enableHiveSupport()
       .getOrCreate()
 
@@ -35,7 +35,7 @@ object SalePerformBoard {
         |	,OER.F_PAEZ_TEXT221 AS SALEDEPT
         |	,SUBSTRING(OER.FDATE,1,10) AS BUSINESSDATE
         |	,dcm.c_province as salearea
-        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE 'HZXM%') THEN '非自营'
+        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END AS PERFORMANCEFORM
         |	,CASE WHEN DWP.PROJECTNAME IS NOT NULL THEN '电商化业务'
         |		ELSE '非电商化业务' END AS IS_DSHYW
@@ -48,7 +48,7 @@ object SalePerformBoard {
         |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FCUSTOMERID = DC.FCUSTID
         |left join ${TableName.DIM_CUSTOMERMANAGE} dcm on IF(nvl(dc.fmdmnumber,'')='',0,dc.fmdmnumber) = dcm.c_mdm_code
         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.F_PXDF_TEXT = DP.FNUMBER
-        |LEFT JOIN ${TableName.ODS_ERP_SALORDER} OES ON IF(OERE.FORDERNUMBER='',0,OERE.FORDERNUMBER) = OES.FBILLNO
+        |LEFT JOIN ${TableName.ODS_ERP_SALORDER} OES ON IF(OERE.F_PAEZ_Text='',0,OERE.F_PAEZ_Text) = OES.FBILLNO
         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
         |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON OER.FSALEERID = DS.FID
         |LEFT JOIN ${TableName.DWD_WRITE_COMPANYNAME} DWC ON DWC.COMPANYNAME = OER.F_PAEZ_TEXT22
@@ -58,7 +58,7 @@ object SalePerformBoard {
         |	,OER.F_PAEZ_TEXT221
         |	,SUBSTRING(OER.FDATE,1,10)
         |	,dcm.c_province
-        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE 'HZXM%') THEN '非自营'
+        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END
         |	,CASE WHEN DWP.PROJECTNAME IS NOT NULL THEN '电商化业务'
         |		ELSE '非电商化业务' END
@@ -66,6 +66,8 @@ object SalePerformBoard {
         |		ELSE '其他' END
         |	,DWC.COMPANYSHORTNAME
         |""".stripMargin)
+
+
 
     // 定义 MySQL 的连接信息
     val conf = Config.load("config.properties")

@@ -1272,8 +1272,6 @@ object UpdateData {
          |rank = 1
          |""".stripMargin)
 
-
-
     //DIM_LOTMASTER表增量更新
     spark.sql(
       s"""

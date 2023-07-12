@@ -55,14 +55,15 @@ object InvoicingStatus {
     val res= spark.sql(
       s"""
          |SELECT
+         |  fid,--唯一标识
          |  FBILLNO,--项目编号
          |  CASE
          |    WHEN FCLOSESTATUS = 'A' THEN '未关闭'
          |    WHEN FCLOSESTATUS = 'B' THEN '关闭'
          |    ELSE '未知' END AS CLOSESTATUS,--关闭状态
          |  CASE
-         |    WHEN COALESCE(FRECEAMOUNT,0) > 0 AND COALESCE(FSURPLUSRECEAMOUNT,0)<=0 THEN '全部开票'
-         |    WHEN COALESCE(FRECEAMOUNT,0) > 0 AND COALESCE(FSURPLUSRECEAMOUNT,0)>=0 AND FCLOSESTATUS='B' THEN '全部开票'
+         |    WHEN COALESCE(FRECEAMOUNT,0) > 0 AND COALESCE(FSURPLUSRECEAMOUNT,0)<=0 THEN '已开票'
+         |    WHEN COALESCE(FRECEAMOUNT,0) > 0 AND COALESCE(FSURPLUSRECEAMOUNT,0)>=0 AND FCLOSESTATUS='B' THEN '已开票'
          |    WHEN COALESCE(FRECEAMOUNT,0) > 0 AND COALESCE(FSURPLUSRECEAMOUNT,0)>0 AND FCLOSESTATUS='A' THEN '部分开票'
          |    WHEN COALESCE(FRECEAMOUNT,0) <=0 THEN '未开票'
          |    ELSE '其他' END AS INVOICESTATUS,--开票状态

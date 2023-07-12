@@ -371,9 +371,10 @@ object ProcureMonitor {
          |oep.FPURCHASEDEPTID purdept,
          |oep.FPURCHASERID purperson,
          |oepe.fmaterialid,
-         |sum(oepe.F_PAEZ_AMOUNT) AS FAMOUNT
+         |sum(oepe.FQTY*oepf.FTAXPRICE) AS FAMOUNT
          |FROM ${TableName.ODS_ERP_POORDER} oep
          |LEFT JOIN ${TableName.ODS_ERP_POORDERENTRY} oepe on oep.fid =oepe.fid
+         |left join ${TableName.ODS_ERP_POORDERENTRY_F} oepf on oepe.fentryid = oepf.fentryid
          |where FPURCHASEORGID = 1 and oepe.FMRPCLOSESTATUS = 'A'
          |group by
          |substring(oep.fdate,1,10),
@@ -400,10 +401,10 @@ object ProcureMonitor {
     spark.sql(
       s"""
          |SELECT
-         |	nvl(nvl(nvl(a1.fdate,a2.fdate),a3.fdate),a4.fdate) fdate,
-         |	nvl(nvl(nvl(a1.purdept,a2.purdept),a3.purdept),a4.purdept) purdept,
-         |	nvl(nvl(nvl(a1.purperson,a2.purperson),a3.purperson),a4.purperson) purperson,
-         |	nvl(nvl(nvl(a1.fmaterialid,a2.fmaterialid),a3.fmaterialid),a4.fmaterialid) fmaterialid,
+         |	COALESCE (if(a1.fdate='',null,a1.fdate),if(a2.fdate='',null,a2.fdate),if(a3.fdate='',null,a3.fdate),if(a4.fdate='',null,a4.fdate)) as fdate,
+         |	COALESCE (if(a1.purdept='',null,a1.purdept),if(a2.purdept='',null,a2.purdept),if(a3.purdept='',null,a3.purdept),if(a4.purdept='',null,a4.purdept)) as purdept,
+         |	COALESCE (if(a1.purperson='',null,a1.purperson),if(a2.purperson='',null,a2.purperson),if(a3.purperson='',null,a3.purperson),if(a4.purperson='',null,a4.purperson)) as purperson,
+         |	COALESCE (if(a1.fmaterialid='',null,a1.fmaterialid),if(a2.fmaterialid='',null,a2.fmaterialid),if(a3.fmaterialid='',null,a3.fmaterialid),if(a4.fmaterialid='',null,a4.fmaterialid)) as fmaterialid,
          |	cast(nvl(a1.famount,0) as decimal(18,4)) ykpamount,
          |	cast(nvl(a2.famount,0) as decimal(18,4)) wkpamount,
          |	cast(nvl(a3.famount,0) as decimal(18,4)) zzxamount,

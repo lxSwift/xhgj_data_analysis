@@ -33,8 +33,8 @@ object PayAmount_Ready {
       s"""
          |INSERT OVERWRITE TABLE ${TableName.DWS_RECE_PAYAMOUNT}
          |select
-         |	pro.fname PRONAME,
-         |	pro.fnumber PRONO,
+         |	b.F_PXDF_TEXT1 PRONAME,
+         |	b.F_PXDF_TEXT PRONO,
          |	cus.Fname CUSTNAME,
          |	cus.fnumber fnumber,
          |	sal.fname salename,
@@ -45,7 +45,6 @@ object PayAmount_Ready {
          |from
          |	ODS_XHGJ.ODS_ERP_RECEIVABLE a
          |join ODS_XHGJ.ODS_ERP_RECEIVABLEENTRY b on a.fid=b.fid
-         |join DW_XHGJ.DIM_PROJECTBASIC pro on b.FPROJECTNO=pro.fid
          |left join DW_XHGJ.DIM_CUSTOMER cus on cus.fcustid=a.FCUSTOMERID
          |left join DW_XHGJ.DIM_SALEMAN sal on sal.fid=a.FSALEERID
          |where a.FDOCUMENTSTATUS='C'
