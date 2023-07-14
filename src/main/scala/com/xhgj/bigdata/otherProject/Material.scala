@@ -191,9 +191,8 @@ object Material {
          |left join ODS_XHGJ.ODS_MPM_EMP em2 on ch.c_examiner = em2.id
          |left join ODS_XHGJ.ODS_MPM_EMP em3 on ch.c_create_man = em3.id
          |left join ODS_XHGJ.ODS_MPM_PRODUCT_MANAGER man on ch.product_manager_id = man.id
-         |WHERE nvl(ch.c_isdisabled,'') != '1' and ch.c_state = '1' and (
-         |	ch.c_category_two <> 'ea8ebef464c5c8c90164ca9e2bac0015'
-         |	OR ch.c_category_two IS NULL)
+         |WHERE ch.c_category_two <> 'ea8ebef464c5c8c90164ca9e2bac0015'
+         |	OR ch.c_category_two IS NULL
          |""".stripMargin)
 
     val table = "ads_oth_material"

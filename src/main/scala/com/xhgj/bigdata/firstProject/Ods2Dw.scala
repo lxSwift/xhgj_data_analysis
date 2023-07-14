@@ -244,7 +244,7 @@ object Ods2Dw {
 
 
     //OA的人员信息表
-
+    //先筛选出组织级别为1或者2 且可用的所有组织
     spark.sql(
       s"""
          |SELECT

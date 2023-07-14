@@ -138,6 +138,7 @@ object ApplicationToOrderTime {
          |LEFT JOIN ${TableName.DIM_SALEMAN} SALE ON SAL.F_PAEZ_BASE1 = SALE.fid
          |LEFT JOIN ${TableName.DIM_EMPINFO} EMP ON SALE.FNUMBER = EMP.fnumber
          |left JOIN SALORDER_L SL ON SAL.F_PAEZ_TEXT = SL.FBILLNO AND SAL.FMATERIALID = SL.FNUMBER
+         |WHERE b.FBILLNO IS NOT NULL
          |""".stripMargin)
     println("result========="+result.count())
     val table = "ads_oth_applicationtoordertime"

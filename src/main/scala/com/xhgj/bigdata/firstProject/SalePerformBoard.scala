@@ -37,7 +37,7 @@ object SalePerformBoard {
         |	,dcm.c_province as salearea
         |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END AS PERFORMANCEFORM
-        |	,CASE WHEN DWP.PROJECTNAME IS NOT NULL THEN '电商化业务'
+        |	,CASE WHEN DWP.IS_DSHYW = '是' THEN '电商化业务'
         |		ELSE '非电商化业务' END AS IS_DSHYW
         |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
         |		ELSE '其他' END AS PROJECTSHORTNAME
@@ -60,7 +60,7 @@ object SalePerformBoard {
         |	,dcm.c_province
         |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END
-        |	,CASE WHEN DWP.PROJECTNAME IS NOT NULL THEN '电商化业务'
+        |	,CASE WHEN DWP.IS_DSHYW = '是' THEN '电商化业务'
         |		ELSE '非电商化业务' END
         |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
         |		ELSE '其他' END

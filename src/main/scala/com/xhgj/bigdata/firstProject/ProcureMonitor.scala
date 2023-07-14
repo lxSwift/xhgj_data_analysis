@@ -90,7 +90,7 @@ object ProcureMonitor {
          |SELECT STAFFNAME,DEPTNAME FROM (
          |SELECT DS.FNAME STAFFNAME,
          |	DD.FNAME DEPTNAME,
-         |	ROW_NUMBER() OVER(PARTITION BY DS.FNAME ORDER BY DD.FCREATEDATE DESC) RN
+         |	ROW_NUMBER() OVER(PARTITION BY DS.FNAME ORDER BY DS.FCREATEDATE DESC) RN
          |FROM ${TableName.DIM_STAFF} DS
          |LEFT JOIN ${TableName.DIM_DEPARTMENT} DD ON DS.FDEPTID = DD.FDEPTID
          |WHERE DS.FUSEORGID = 1
@@ -268,9 +268,9 @@ object ProcureMonitor {
          | 	a5.fapprovedate as sendappdate,
          | 	a7.fcreatedate as outcreadate,
          | 	a7.fapprovedate as outappdate,
-         | 	datediff(from_unixtime(unix_timestamp(a8.fapprovedate),'yyyy-MM-dd'),from_unixtime(unix_timestamp(a8.fcreatedate),'yyyy-MM-dd')) as salfordate,
-         | 	datediff(from_unixtime(unix_timestamp(a1.fapplicationdate),'yyyy-MM-dd'),from_unixtime(unix_timestamp(a1.fcreatedate),'yyyy-MM-dd')) as reqfordate,
-         | 	datediff(from_unixtime(unix_timestamp(a2.fapprovedate),'yyyy-MM-dd'),from_unixtime(unix_timestamp(a1.fapprovedate),'yyyy-MM-dd')) as poofordate,
+         | 	(unix_timestamp(cast(a8.fapprovedate as timestamp)) - unix_timestamp(cast(a8.fcreatedate as timestamp))) / 3600 / 24.0 as salfordate,
+         |  (unix_timestamp(cast(a1.fapprovedate as timestamp)) - unix_timestamp(cast(a1.fcreatedate as timestamp))) / 3600 / 24.0 as reqfordate,
+         |  (unix_timestamp(cast(a2.fapprovedate as timestamp)) - unix_timestamp(cast(a1.fapprovedate as timestamp))) / 3600 / 24.0 as poofordate,
          | 	a1.reqqty,
          | 	a2.purqty,
          | 	a3.fbillno as instockno,
