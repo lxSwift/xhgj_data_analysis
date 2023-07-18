@@ -122,7 +122,7 @@ object ApplicationToOrderTime {
          |  SAL.F_PAEZ_TEXT,--销售订单号
          |  SL.F_PXDF_TEXT PROJECTNO,--项目编码
          |  SL.F_PXDF_TEXT1 PROJECTNAME, --项目名称
-         |  CAST(from_unixtime(unix_timestamp(sal.FCREATEDATE, 'yyyy-MM-dd HH:mm:ss'), 'yyyyMMdd') AS DECIMAL(18,2)) - CAST(from_unixtime(unix_timestamp(b.FAPPROVEDATE, 'yyyy-MM-dd HH:mm:ss'), 'yyyyMMdd') AS DECIMAL(18,2)) AS DIFFTIME --相差天数
+         |  (unix_timestamp(cast(SAL.FCREATEDATE as timestamp)) - unix_timestamp(cast(b.FAPPROVEDATE as timestamp))) / 3600 / 24.0 AS DIFFTIME --相差天数
          |FROM
          |  salorder SAL
          |left join

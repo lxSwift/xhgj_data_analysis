@@ -235,6 +235,9 @@ object ProcureMonitor {
          |""".stripMargin).createOrReplaceTempView("a8")
 
 
+    /**
+     * a1 采购申请单  a2 采购订单  a3 采购入库单 a5 出库通知单   a7 采购出库单  a8销售订单
+     */
 
     val res = spark.sql(
       s"""
