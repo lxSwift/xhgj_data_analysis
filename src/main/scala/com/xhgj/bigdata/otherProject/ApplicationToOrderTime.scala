@@ -94,8 +94,6 @@ object ApplicationToOrderTime {
          |LEFT JOIN ${TableName.DIM_MATERIAL} C ON OESE.FMATERIALID = C.FMATERIALID
          |""".stripMargin).createOrReplaceTempView("SALORDER_L")
 
-
-
     val result = spark.sql(
       s"""
          |SELECT

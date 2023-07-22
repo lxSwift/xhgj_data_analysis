@@ -42,45 +42,48 @@ object ProcureMonitor {
      */
     spark.sql(
       s"""
-         |select oer.fbillno,
-         | 	oer.fcreatedate,
-         | 	oer.fapprovedate,
-         | 	oere.fmaterialid,
-         | 	case when oer.fdocumentstatus = 'Z' then '暂存'
-         | 		 when oer.fdocumentstatus = 'A' then '创建'
-         | 		 when oer.fdocumentstatus = 'B' then '审核中'
-         | 		 when oer.fdocumentstatus = 'C' then '已审核'
-         | 		 when oer.fdocumentstatus = 'D' then '重新审核'
-         | 	 		 else oer.fdocumentstatus end as fdocumentstatus,
-         | 	 	do1.fname reqorgname,
-         | 	 	oer.fapplicationdate ,
-         | 	 	oere.F_PXDF_TEXT1 f_projectno,
-         |    dp.fname projectname,
-         | 	 	dm.fnumber materno,
-         | 	 	dm.fname matername,
-         | 	 	dm.f_paez_text brandname,
-         | 	 	dm.fspecification specification,
-         | 		do2.fname saleorgname,
-         | 		ds.fname saler ,
-         | 		oerr.fsrcbillno,
-         | 		oer.fid,
-         | 		oere.fentryid,
-         | 		oerl.fsbillid ,
-         | 		oerl.fsid,
+         |SELECT
+         | 	OER.FBILLNO,
+         | 	OER.FCREATEDATE,
+         | 	OER.FAPPROVEDATE,
+         | 	OERE.FMATERIALID,
+         | 	CASE WHEN OER.FDOCUMENTSTATUS = 'Z' THEN '暂存'
+         | 		 WHEN OER.FDOCUMENTSTATUS = 'A' THEN '创建'
+         | 		 WHEN OER.FDOCUMENTSTATUS = 'B' THEN '审核中'
+         | 		 WHEN OER.FDOCUMENTSTATUS = 'C' THEN '已审核'
+         | 		 WHEN OER.FDOCUMENTSTATUS = 'D' THEN '重新审核'
+         | 	 		 ELSE OER.FDOCUMENTSTATUS END AS FDOCUMENTSTATUS,
+         | 	 	DO1.FNAME REQORGNAME,
+         | 	 	OER.FAPPLICATIONDATE ,
+         | 	 	OERE.F_PXDF_TEXT1 F_PROJECTNO,
+         | 	 	DP.FNAME PROJECTNAME,
+         | 	 	DM.FNUMBER MATERNO,
+         | 	 	DM.FNAME MATERNAME,
+         | 	 	DM.F_PAEZ_TEXT BRANDNAME,
+         | 	 	DM.FSPECIFICATION SPECIFICATION,
+         | 		CASE WHEN OER.F_PXDF_ORGID = OER.FAPPLICATIONORGID THEN DCT.FNAME
+         | 			ELSE DO2.FNAME END AS SALEORGNAME,
+         | 		DS.FNAME SALER ,
+         | 		OERR.FSRCBILLNO,
+         | 		OER.FID,
+         | 		OERE.FENTRYID,
+         | 		OERL.FSBILLID ,
+         | 		OERL.FSID,
          | 		DC.FNAME KHLB,
-         | 		oere.FAPPROVEQTY as reqqty
-         | from ${TableName.ODS_ERP_REQUISITION} oer
-         | left join ${TableName.ODS_ERP_REQENTRY} oere on oer.fid = oere.fid
-         | left join ${TableName.ODS_ERP_REQENTRY_R} oerr on oere.fentryid = oerr.fentryid
-         | left join ${TableName.ODS_ERP_REQENTRY_LK} oerl on oere.fentryid = oerl.fentryid
-         | LEFT JOIN ${TableName.DIM_MATERIAL} dm on oere.fmaterialid = dm.fmaterialid --物料表
-         | LEFT JOIN ${TableName.DIM_CUST100501} DC ON dm.f_khr = DC.FID
-         | LEFT JOIN ${TableName.DIM_ORGANIZATIONS} do1 on oer.FAPPLICATIONORGID = do1.forgid
-         | LEFT JOIN ${TableName.DIM_ORGANIZATIONS} do2 on oer.f_pxdf_orgid = do2.forgid
-         | LEFT JOIN ${TableName.DIM_SALEMAN} ds on oere.f_paez_base1 = ds.fid
-         | LEFT JOIN ${TableName.DIM_PROJECTBASIC} dp ON oere.f_projectno = DP.fid
-         | WHERE oer.FAPPLICATIONORGID = '1'
-         |""".stripMargin).createOrReplaceTempView("a1")
+         | 		IF(OERE.FAPPROVEQTY='',NULL,OERE.FAPPROVEQTY) AS REQQTY
+         | FROM ${TableName.ODS_ERP_REQUISITION} OER
+         | LEFT JOIN ${TableName.ODS_ERP_REQENTRY} OERE ON OER.FID = OERE.FID
+         | LEFT JOIN ${TableName.ODS_ERP_REQENTRY_R} OERR ON OERE.FENTRYID = OERR.FENTRYID
+         | LEFT JOIN ${TableName.ODS_ERP_REQENTRY_LK} OERL ON OERE.FENTRYID = OERL.FENTRYID
+         | LEFT JOIN ${TableName.DIM_MATERIAL} DM ON OERE.FMATERIALID = DM.FMATERIALID --物料表
+         | LEFT JOIN ${TableName.DIM_CUST100501} DC ON DM.F_KHR = DC.FID
+         | LEFT JOIN ${TableName.DIM_ORGANIZATIONS} DO1 ON OER.FAPPLICATIONORGID = DO1.FORGID
+         | LEFT JOIN ${TableName.DIM_ORGANIZATIONS} DO2 ON OER.F_PXDF_ORGID = DO2.FORGID
+         | LEFT JOIN ${TableName.DIM_SALEMAN} DS ON OERE.F_PAEZ_BASE1 = DS.FID
+         | LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.F_PROJECTNO = DP.FID
+         | LEFT JOIN ${TableName.DIM_CUSTOMER} DCT ON OERE.F_PAEZ_BASE = DCT.FCUSTID
+         | WHERE OER.FAPPLICATIONORGID IN ('1','481351') AND (OERE.FMRPTERMINATESTATUS != 'B' OR OERR.FREMAINQTY != OERE.FREQQTY)
+         |""".stripMargin).createOrReplaceTempView("A1")
 
     /**
      * 获取职员的名称和部门信息
@@ -90,7 +93,7 @@ object ProcureMonitor {
          |SELECT STAFFNAME,DEPTNAME FROM (
          |SELECT DS.FNAME STAFFNAME,
          |	DD.FNAME DEPTNAME,
-         |	ROW_NUMBER() OVER(PARTITION BY DS.FNAME ORDER BY DS.FCREATEDATE DESC) RN
+         |	ROW_NUMBER() OVER(PARTITION BY DS.FNAME ORDER BY DD.FCREATEDATE DESC) RN
          |FROM ${TableName.DIM_STAFF} DS
          |LEFT JOIN ${TableName.DIM_DEPARTMENT} DD ON DS.FDEPTID = DD.FDEPTID
          |WHERE DS.FUSEORGID = 1
@@ -101,7 +104,8 @@ object ProcureMonitor {
      */
     spark.sql(
       s"""
-        |SELECT OEP.FBILLNO,
+        |SELECT '采购订单' AS BILLTYPES,
+        | 	OEP.FBILLNO,
         |	OEP.FCREATEDATE,
         |	OEP.FAPPROVEDATE,
         |	OEPE.FMATERIALID,
@@ -119,7 +123,7 @@ object ProcureMonitor {
         |	OEPL.FSID,
         |	OEP.FID,
         |	OEPE.FENTRYID,
-        |	OEPE.FQTY AS PURQTY
+        |	IF(OEPE.FQTY='',NULL,OEPE.FQTY) AS PURQTY
         |FROM ${TableName.ODS_ERP_POORDER} OEP
         |LEFT JOIN ${TableName.ODS_ERP_POORDERENTRY} OEPE ON OEP.FID = OEPE.FID
         |LEFT JOIN ${TableName.ODS_ERP_POORDERENTRY_R} OEPR ON OEPE.FENTRYID = OEPR.FENTRYID
@@ -127,113 +131,385 @@ object ProcureMonitor {
         |LEFT JOIN ${TableName.DIM_USER} DU ON OEP.FCREATORID = DU.FUSERID
         |LEFT JOIN STAFF ON STAFF.STAFFNAME = DU.FNAME
         |LEFT JOIN ${TableName.DIM_SUPPLIER} DS ON OEP.FSUPPLIERID = DS.FSUPPLIERID
-        | WHERE OEP.FBILLNO <> '' AND OEPR.FSRCBILLNO <> '' AND OEP.FPURCHASEORGID = '1'
-        |""".stripMargin).createOrReplaceTempView("a2")
+        | WHERE OEP.FBILLNO <> '' AND OEPR.FSRCBILLNO <> '' AND OEP.FPURCHASEORGID IN ('1','481351')
+        |""".stripMargin).createOrReplaceTempView("A2")
 
     /**
      * 采购入库单获得收料组织为1万聚且单据以及源单编码不为空
      */
     spark.sql(
       s"""
-        |SELECT oei.fbillno,
-        |	oei.fcreatedate,
-        |	oei.fapprovedate,
-        |	oeie.fmaterialid,
-        |	oeie.fsrcbillno,
-        |	dl.fname flotname,
-        |	ds.fname stockname,
-        |	oeil.fsbillid,
-        |	oeil.fsid,
-        |	oeie.FREALQTY as instockqty
-        |FROM ${TableName.ODS_ERP_INSTOCK} oei
-        |left join ${TableName.ODS_ERP_INSTOCKENTRY} oeie on oei.fid = oeie.fid
-        |left join ${TableName.ODS_ERP_INSTOCKENTRY_LK} oeil on oeie.fentryid = oeil.fentryid
-        |left join ${TableName.DIM_LOTMASTER} dl on oeie.flot = dl.flotid
-        |left join ${TableName.DIM_STOCK} ds on oeie.FSTOCKID = ds.fstockid
-        |WHERE oei.FBILLNO <> '' and oeie.FSRCBILLNO <>'' and oei.FSTOCKORGID = '1'
-        |""".stripMargin).createOrReplaceTempView("a3")
+        |SELECT OEI.FBILLNO,
+        |	OEI.FCREATEDATE,
+        |	OEI.FAPPROVEDATE,
+        |	OEIE.FMATERIALID,
+        |	OEIE.FSRCBILLNO,
+        |	DL.FNAME FLOTNAME,
+        |	DS.FNAME STOCKNAME,
+        |	OEIL.FSBILLID,
+        |	OEIL.FSID,
+        |	IF(OEIE.FREALQTY='',NULL,OEIE.FREALQTY) AS INSTOCKQTY
+        |FROM ${TableName.ODS_ERP_INSTOCK} OEI
+        |LEFT JOIN ${TableName.ODS_ERP_INSTOCKENTRY} OEIE ON OEI.FID = OEIE.FID
+        |LEFT JOIN ${TableName.ODS_ERP_INSTOCKENTRY_LK} OEIL ON OEIE.FENTRYID = OEIL.FENTRYID
+        |LEFT JOIN ${TableName.DIM_LOTMASTER} DL ON OEIE.FLOT = DL.FLOTID
+        |LEFT JOIN ${TableName.DIM_STOCK} DS ON OEIE.FSTOCKID = DS.FSTOCKID
+        |WHERE OEI.FBILLNO <> '' AND OEIE.FSRCBILLNO <>'' AND OEI.FSTOCKORGID IN ('1','481351')
+        |""".stripMargin).createOrReplaceTempView("A3")
 
+
+    spark.sql(
+      s"""
+         |SELECT
+         | 	A2.FBILLNO AS PURNO,
+         | 	A2.FDOCUMENTSTATUS AS PURSTATUS,
+         | 	A2.SUPPLIERNAME,
+         | 	A2.PURDEPTNMEA,
+         | 	A2.PURCHASERNAME,
+         | 	A2.FCREATEDATE AS PURCREADATE,
+         | 	A2.FAPPROVEDATE AS PURAPPDATE,
+         |	A2.FSBILLID,
+         |	A2.FSID,
+         |	A2.FID,
+         |	A2.FENTRYID,
+         | 	A3.FCREATEDATE AS INCREADATE,
+         | 	A3.FAPPROVEDATE AS INAPPDATE,
+         | 	A3.FBILLNO AS INSTOCKNO,
+         | 	A3.FLOTNAME AS INSTOCKFLOT,
+         | 	A3.FMATERIALID,
+         | 	A3.STOCKNAME AS INSTOCK,
+         |	COALESCE (A3.INSTOCKQTY,A2.PURQTY)*1 AS PURQTY,
+         |	A3.INSTOCKQTY
+         |FROM A2
+         |LEFT JOIN A3 ON A3.FSBILLID = A2.FID AND A3.FSID = A2.FENTRYID
+         |UNION ALL
+         |SELECT
+         | 	A2.FBILLNO AS PURNO,
+         | 	A2.FDOCUMENTSTATUS AS PURSTATUS,
+         | 	A2.SUPPLIERNAME,
+         | 	A2.PURDEPTNMEA,
+         | 	A2.PURCHASERNAME,
+         | 	A2.FCREATEDATE AS PURCREADATE,
+         | 	A2.FAPPROVEDATE AS PURAPPDATE,
+         |	A2.FSBILLID,
+         |	A2.FSID,
+         |	A2.FID,
+         |	A2.FENTRYID,
+         | 	NULL AS INCREADATE,
+         | 	NULL AS INAPPDATE,
+         | 	NULL AS INSTOCKNO,
+         | 	NULL AS INSTOCKFLOT,
+         | 	NULL AS FMATERIALID,
+         | 	NULL AS INSTOCK,
+         |	A3.INSTOCKQTY-SUM(A2.PURQTY) AS PURQTY,
+         |	NULL AS INSTOCKQTY
+         |FROM A2
+         |LEFT JOIN A3 ON A3.FSBILLID = A2.FID AND A3.FSID = A2.FENTRYID
+         |GROUP BY A2.FBILLNO,
+         |	A2.FCREATEDATE,
+         |	A2.FAPPROVEDATE ,
+         |	A2.FDOCUMENTSTATUS,
+         |	A2.SUPPLIERNAME ,
+         |	A2.PURDEPTNMEA,
+         |	A2.PURCHASERNAME,
+         |	A2.FSBILLID,
+         |	A2.FSID,
+         |	A2.FID,
+         |	A2.FENTRYID,
+         |	A3.INSTOCKQTY
+         |HAVING A3.INSTOCKQTY-SUM(A2.PURQTY) > 0
+         |""".stripMargin).createOrReplaceTempView("A23")
+
+    spark.sql(
+      s"""
+         |SELECT
+         | 	A1.FBILLNO AS REQNO,
+         | 	A1.FDOCUMENTSTATUS AS REQSTATUS,
+         | 	A1.REQORGNAME,
+         | 	A1.FAPPLICATIONDATE AS REQAPPLIDATE,
+         | 	A1.F_PROJECTNO AS REQPRONO,
+         | 	A1.SALEORGNAME,
+         | 	A1.SALER,
+         | 	A1.MATERNO,
+         | 	A1.MATERNAME,
+         | 	A1.BRANDNAME,
+         | 	A1.SPECIFICATION,
+         | 	A1.KHLB AS TESTTYPE,
+         | 	A1.FCREATEDATE AS REQCREADATE,
+         | 	A1.FAPPROVEDATE AS REQAPPDATE,
+         | 	A1.PROJECTNAME,
+         | 	A1.FID,
+         | 	A1.FENTRYID,
+         | 	A23.PURNO,
+         | 	A23.PURSTATUS,
+         | 	A23.SUPPLIERNAME,
+         | 	A23.PURDEPTNMEA,
+         | 	A23.PURCHASERNAME,
+         | 	A23.PURCREADATE,
+         | 	A23.PURAPPDATE,
+         |	A1.FSBILLID,
+         |	A1.FSID,
+         | 	A23.INCREADATE,
+         | 	A23.INAPPDATE,
+         | 	A23.INSTOCKNO,
+         | 	A23.INSTOCKFLOT,
+         | 	A23.FMATERIALID,
+         | 	A23.INSTOCK,
+         |	COALESCE(A23.PURQTY,A1.REQQTY)*1 AS REQQTY,
+         |	A23.PURQTY,
+         |	A23.INSTOCKQTY
+         |FROM A1
+         |LEFT JOIN A23 ON A23.FSBILLID = A1.FID AND A23.FSID = A1.FENTRYID
+         |UNION ALL
+         | SELECT
+         | 	A1.FBILLNO AS REQNO,
+         | 	A1.FDOCUMENTSTATUS AS REQSTATUS,
+         | 	A1.REQORGNAME,
+         | 	A1.FAPPLICATIONDATE AS REQAPPLIDATE,
+         | 	A1.F_PROJECTNO AS REQPRONO,
+         | 	A1.SALEORGNAME,
+         | 	A1.SALER,
+         | 	A1.MATERNO,
+         | 	A1.MATERNAME,
+         | 	A1.BRANDNAME,
+         | 	A1.SPECIFICATION,
+         | 	A1.KHLB AS TESTTYPE,
+         | 	A1.FCREATEDATE AS REQCREADATE,
+         | 	A1.FAPPROVEDATE AS REQAPPDATE,
+         | 	A1.PROJECTNAME,
+         | 	A1.FID,
+         | 	A1.FENTRYID,
+         | 	NULL AS PURNO,
+         | 	NULL AS PURSTATUS,
+         | 	NULL AS SUPPLIERNAME,
+         | 	NULL AS PURDEPTNMEA,
+         | 	NULL AS PURCHASERNAME,
+         | 	NULL AS PURCREADATE,
+         | 	NULL AS PURAPPDATE,
+         |	A1.FSBILLID,
+         |	A1.FSID,
+         | 	NULL AS INCREADATE,
+         | 	NULL AS INAPPDATE,
+         | 	NULL AS INSTOCKNO,
+         | 	NULL AS INSTOCKFLOT,
+         | 	NULL AS FMATERIALID,
+         | 	NULL AS INSTOCK,
+         |	A1.REQQTY - SUM(A23.PURQTY) AS REQQTY,
+         |	NULL AS PURQTY,
+         |	NULL AS INSTOCKQTY
+         |FROM A1
+         |LEFT JOIN A23 ON A23.FSBILLID = A1.FID AND A23.FSID = A1.FENTRYID
+         |GROUP BY A1.FBILLNO ,
+         | 	A1.FDOCUMENTSTATUS ,
+         | 	A1.REQORGNAME,
+         | 	A1.FAPPLICATIONDATE,
+         | 	A1.F_PROJECTNO ,
+         | 	A1.SALEORGNAME,
+         | 	A1.SALER,
+         | 	A1.MATERNO,
+         | 	A1.MATERNAME,
+         | 	A1.BRANDNAME,
+         | 	A1.SPECIFICATION,
+         | 	A1.KHLB,
+         | 	A1.FCREATEDATE ,
+         | 	A1.FAPPROVEDATE,
+         | 	A1.PROJECTNAME,
+         | 	A1.REQQTY,
+         | 	A1.FID,
+         | 	A1.FENTRYID,
+         |  A1.FSBILLID,
+         |	A1.FSID
+         | HAVING A1.REQQTY - SUM(A23.PURQTY) > 0
+         |""".stripMargin).createOrReplaceTempView("A123")
     /**
      * 出库通知单获取批号
      *
      */
     spark.sql(
       s"""
-         |select oed.fbillno,
-         |	oed.fcreatedate,
-         |	oed.fapprovedate,
-         |	oede.fmaterialid,
-         |	dl.fname flotname,
-         |	sum(oede.fqty) over(partition by dl.fname,oede.fmaterialid) noticeqty,
-         |	row_number() over(partition by dl.fname,oede.fmaterialid order by COALESCE(oed.fapprovedate,oed.fcreatedate) desc) as rn
-         |from ${TableName.ODS_ERP_DELIVERYNOTICE} oed
-         |left join ${TableName.ODS_ERP_DELIVERYNOTICEENTRY} oede on oed.fid = oede.fid
-         |left join ${TableName.DIM_LOTMASTER} dl on oede.flot = dl.flotid
-         |where COALESCE(oede.flot,'') != ''
-         |""".stripMargin).createOrReplaceTempView("a4")
+         |SELECT OED.FBILLNO,
+         |	OED.FCREATEDATE,
+         |	OED.FAPPROVEDATE,
+         |	OEDE.FMATERIALID,
+         |	DL.FNAME FLOTNAME,
+         |	SUM(OEDE.FQTY) OVER(PARTITION BY DL.FNAME,OEDE.FMATERIALID) NOTICEQTY,
+         |	ROW_NUMBER() OVER(PARTITION BY DL.FNAME,OEDE.FMATERIALID ORDER BY COALESCE(OED.FAPPROVEDATE,OED.FCREATEDATE) DESC) AS RN
+         |FROM ${TableName.ODS_ERP_DELIVERYNOTICE} OED
+         |LEFT JOIN ${TableName.ODS_ERP_DELIVERYNOTICEENTRY} OEDE ON OED.FID = OEDE.FID
+         |LEFT JOIN ${TableName.DIM_LOTMASTER} DL ON OEDE.FLOT = DL.FLOTID
+         |WHERE COALESCE(OEDE.FLOT,'') != ''
+         |""".stripMargin).createOrReplaceTempView("A4")
 
     spark.sql(
       s"""
-         |select fbillno,
-         |	fcreatedate,
-         |	fapprovedate,
-         |	fmaterialid,
-         |	flotname,
-         |	noticeqty
-         |from a4
-         |where rn = 1
-         |""".stripMargin).createOrReplaceTempView("a5")
+         |SELECT FBILLNO,
+         |	FCREATEDATE,
+         |	FAPPROVEDATE,
+         |	FMATERIALID,
+         |	FLOTNAME,
+         |	IF(NOTICEQTY='',NULL, NOTICEQTY) AS NOTICEQTY
+         |FROM A4
+         |WHERE RN = 1
+         |""".stripMargin).createOrReplaceTempView("A5")
 
     /**
      * 出库单
      */
     spark.sql(
       s"""
-        |select
-        |  	oeo.fbillno,
-        |	oeo.fcreatedate,
-        |	oeo.fapprovedate,
-        |	oeoe.fmaterialid,
-        |	dl.fname as flotname,
-        |	sum(oeoe.FREALQTY) over(partition by dl.fname,oeoe.fmaterialid) as outstockqty,
-        |	row_number() over(partition by dl.fname,oeoe.fmaterialid order by COALESCE(oeo.fapprovedate,oeo.fcreatedate) desc) as rn
-        |from ${TableName.ODS_ERP_OUTSTOCK} oeo
-        |left join ${TableName.ODS_ERP_OUTSTOCKENTRY} oeoe on oeo.fid = oeoe.fid
-        |left join ${TableName.ODS_ERP_OUTSTOCKENTRY_LK} oeol on oeoe.fentryid = oeol.fentryid
-        |left join ${TableName.DIM_LOTMASTER} dl on oeoe.flot = dl.flotid
-        |where COALESCE(oeoe.flot,'') != ''
-        |""".stripMargin).createOrReplaceTempView("a6")
+        |SELECT
+        |  	OEO.FBILLNO,
+        |	OEO.FCREATEDATE,
+        |	OEO.FAPPROVEDATE,
+        |	OEOE.FMATERIALID,
+        |	DL.FNAME AS FLOTNAME,
+        |	SUM(OEOE.FREALQTY) OVER(PARTITION BY DL.FNAME,OEOE.FMATERIALID) AS OUTSTOCKQTY,
+        |	ROW_NUMBER() OVER(PARTITION BY DL.FNAME,OEOE.FMATERIALID ORDER BY COALESCE(OEO.FAPPROVEDATE,OEO.FCREATEDATE) DESC) AS RN
+        |FROM ${TableName.ODS_ERP_OUTSTOCK} OEO
+        |LEFT JOIN ${TableName.ODS_ERP_OUTSTOCKFIN} OEOF ON OEO.FID = OEOF.FID
+        |LEFT JOIN ${TableName.ODS_ERP_OUTSTOCKENTRY} OEOE ON OEO.FID = OEOE.FID
+        |LEFT JOIN ${TableName.ODS_ERP_OUTSTOCKENTRY_LK} OEOL ON OEOE.FENTRYID = OEOL.FENTRYID
+        |LEFT JOIN ${TableName.DIM_LOTMASTER} DL ON OEOE.FLOT = DL.FLOTID
+        |WHERE COALESCE(OEOE.FLOT,'') != '' AND OEOF.FISGENFORIOS = '0'
+        |""".stripMargin).createOrReplaceTempView("A6")
 
     spark.sql(
       s"""
-         |select
-         | 	fbillno,
-         |	fcreatedate,
-         |	fapprovedate,
-         |	fmaterialid,
-         |	flotname,
-         |	outstockqty
-         |from a6
-         |where rn = 1
-         |""".stripMargin).createOrReplaceTempView("a7")
+         |SELECT
+         | 	FBILLNO,
+         |	FCREATEDATE,
+         |	FAPPROVEDATE,
+         |	FMATERIALID,
+         |	FLOTNAME,
+         |	IF(OUTSTOCKQTY=='',NULL,OUTSTOCKQTY) AS OUTSTOCKQTY
+         |FROM A6
+         |WHERE RN = 1
+         |""".stripMargin).createOrReplaceTempView("A7")
 
     /**
      * 销售订单
      */
     spark.sql(
       s"""
-         |select
-         |	fbillno,
-         |	fcreatedate,
-         |	fapprovedate,
-         |	fid,
-         |	fentryid,
-         |	fmaterialid,
-         |	fqty as saleqty
-         |from ${TableName.DWD_SAL_ORDER} dso
-         |where fbillno <> ''
-         |""".stripMargin).createOrReplaceTempView("a8")
+         |SELECT
+         |	DSO.FBILLNO,
+         |	DSO.FCREATEDATE,
+         |	DSO.FAPPROVEDATE,
+         |	DSO.FID,
+         |	DSO.FENTRYID,
+         |	DSO.FMATERIALID,
+         |	DP.FCUSTOMERORDERID,
+         |	IF(FQTY='',NULL,FQTY) AS SALEQTY
+         |FROM ${TableName.DWD_SAL_ORDER} DSO
+         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON DSO.FPROJECTBASIC = DP.FID
+         |WHERE FBILLNO <> ''
+         |ORDER BY DSO.FCREATEDATE DESC
+         |""".stripMargin).createOrReplaceTempView("A8")
 
+
+    spark.sql(
+      s"""
+         |SELECT
+         | 	A123.REQNO,
+         | 	A123.REQSTATUS,
+         | 	A123.REQORGNAME,
+         | 	A123.REQAPPLIDATE,
+         | 	A123.REQPRONO,
+         | 	A123.SALEORGNAME,
+         | 	A123.SALER,
+         | 	A123.MATERNO,
+         | 	A123.MATERNAME,
+         | 	A123.BRANDNAME,
+         | 	A123.SPECIFICATION,
+         | 	A123.TESTTYPE,
+         | 	A123.REQCREADATE,
+         | 	A123.REQAPPDATE,
+         | 	A123.PROJECTNAME,
+         | 	A123.FID,
+         | 	A123.FENTRYID,
+         | 	A123.PURNO,
+         | 	A123.PURSTATUS,
+         | 	A123.SUPPLIERNAME,
+         | 	A123.PURDEPTNMEA,
+         | 	A123.PURCHASERNAME,
+         | 	A123.PURCREADATE,
+         | 	A123.PURAPPDATE,
+         |	A123.FSBILLID,
+         |	A123.FSID,
+         | 	A123.INCREADATE,
+         | 	A123.INAPPDATE,
+         | 	A123.INSTOCKNO,
+         | 	A123.INSTOCKFLOT,
+         | 	A123.FMATERIALID,
+         | 	A123.INSTOCK,
+         |	A8.FBILLNO AS SALENO,
+         |	A8.FCREATEDATE AS SALECREADATE,
+         | 	A8.FAPPROVEDATE AS SALEAPPDATE,
+         | 	A8.FCUSTOMERORDERID,
+         | 	A8.FENTRYID,
+         | 	A8.FCUSTOMERORDERID,
+         | 	COALESCE(A123.REQQTY,A8.SALEQTY)*1 AS SALEQTY,
+         | 	A123.REQQTY,
+         |	A123.PURQTY,
+         |	A123.INSTOCKQTY
+         | FROM A123
+         | LEFT JOIN A8 ON A8.FID = A123.FSBILLID AND A8.FENTRYID = A123.FSID
+         | UNION ALL
+         |   SELECT
+         | 		NULL AS REQNO,
+         | 	NULL AS REQSTATUS,
+         | 	NULL AS REQORGNAME,
+         | 	NULL AS REQAPPLIDATE,
+         | 	NULL AS REQPRONO,
+         | 	NULL AS SALEORGNAME,
+         | 	NULL AS SALER,
+         | 	NULL AS MATERNO,
+         | 	NULL AS MATERNAME,
+         | 	NULL AS BRANDNAME,
+         | 	NULL AS SPECIFICATION,
+         | 	NULL AS TESTTYPE,
+         | 	NULL AS REQCREADATE,
+         | 	NULL AS REQAPPDATE,
+         | 	NULL AS PROJECTNAME,
+         | 	NULL AS FID,
+         | 	NULL AS FENTRYID,
+         | 	NULL AS PURNO,
+         | 	NULL AS PURSTATUS,
+         | 	NULL AS SUPPLIERNAME,
+         | 	NULL AS PURDEPTNMEA,
+         | 	NULL AS PURCHASERNAME,
+         | 	NULL AS PURCREADATE,
+         | 	NULL AS PURAPPDATE,
+         |	NULL AS FSBILLID,
+         |	NULL AS FSID,
+         | 	NULL AS INCREADATE,
+         | 	NULL AS INAPPDATE,
+         | 	NULL AS INSTOCKNO,
+         | 	NULL AS INSTOCKFLOT,
+         | 	NULL AS FMATERIALID,
+         | 	NULL AS INSTOCK,
+         |	A8.FBILLNO AS SALENO,
+         |	A8.FCREATEDATE AS SALECREADATE,
+         | 	A8.FAPPROVEDATE AS SALEAPPDATE,
+         | 	A8.FCUSTOMERORDERID,
+         | 	A8.FENTRYID,
+         | 	A8.FCUSTOMERORDERID,
+         | 	A8.SALEQTY - SUM(A123.REQQTY) AS SALEQTY,
+         | 	NULL AS REQQTY,
+         |	NULL AS PURQTY,
+         |	NULL AS INSTOCKQTY
+         | FROM A123
+         | LEFT JOIN A8 ON A8.FID = A123.FSBILLID AND A8.FENTRYID = A123.FSID
+         | GROUP BY
+         |	A8.FBILLNO,
+         |	A8.FCREATEDATE,
+         | 	A8.FAPPROVEDATE,
+         | 	A8.FCUSTOMERORDERID,
+         | 	A8.SALEQTY,
+         | 	A8.FENTRYID,
+         | 	A8.FCUSTOMERORDERID
+         | HAVING A8.SALEQTY - SUM(A123.REQQTY) > 0
+         |""".stripMargin).createOrReplaceTempView("A1238")
 
     /**
      * a1 采购申请单  a2 采购订单  a3 采购入库单 a5 出库通知单   a7 采购出库单  a8销售订单
@@ -241,58 +517,57 @@ object ProcureMonitor {
 
     val res = spark.sql(
       s"""
-         |select a1.fbillno as reqno,
-         | 	a1.fdocumentstatus as reqstatus,
-         | 	a1.reqorgname,
-         | 	a1.fapplicationdate as reqapplidate,
-         | 	a1.f_projectno as reqprono,
-         | 	a1.saleorgname,
-         | 	a1.saler,
-         | 	a8.fbillno as saleno,
-         | 	a2.fbillno as purno,
-         | 	a2.fdocumentstatus as purstatus,
-         | 	a2.suppliername,
-         | 	a2.purdeptnmea,
-         | 	a2.purchasername,
-         | 	a1.materno,
-         | 	a1.matername,
-         | 	a1.brandname,
-         | 	a1.specification,
-         | 	a1.khlb testtype,
-         | 	a8.fcreatedate as salecreadate,
-         | 	a8.fapprovedate as saleappdate,
-         | 	a1.fcreatedate as reqcreadate,
-         | 	a1.fapprovedate as reqappdate,
-         | 	a2.fcreatedate as purcreadate,
-         | 	a2.fapprovedate as purappdate,
-         | 	a3.fcreatedate as increadate,
-         | 	a3.fapprovedate as inappdate,
-         | 	a5.fcreatedate as sendcreadate,
-         | 	a5.fapprovedate as sendappdate,
-         | 	a7.fcreatedate as outcreadate,
-         | 	a7.fapprovedate as outappdate,
-         | 	(unix_timestamp(cast(a8.fapprovedate as timestamp)) - unix_timestamp(cast(a8.fcreatedate as timestamp))) / 3600 / 24.0 as salfordate,
-         |  (unix_timestamp(cast(a1.fapprovedate as timestamp)) - unix_timestamp(cast(a1.fcreatedate as timestamp))) / 3600 / 24.0 as reqfordate,
-         |  (unix_timestamp(cast(a2.fapprovedate as timestamp)) - unix_timestamp(cast(a1.fapprovedate as timestamp))) / 3600 / 24.0 as poofordate,
-         | 	a1.reqqty,
-         | 	a2.purqty,
-         | 	a3.fbillno as instockno,
-         | 	a3.flotname as instockflot,
-         | 	a3.stockname as instock,
-         | 	a3.instockqty,
-         |	a5.fbillno as noticeno,
-         | 	a5.noticeqty,
-         | 	a7.fbillno as outstockno,
-         | 	a8.saleqty,
-         |  a7.outstockqty,
-         |  a1.projectname
-         | from a1 left join a2 on a1.fid = a2.fsbillid
-         | AND A1.fentryid = A2.fsid
-         | left join a3 on a2.fid = a3.fsbillid
-         | AND A2.fentryid = a3.fsid
-         | left join a5 on a5.flotname = a3.flotname and a5.fmaterialid = a3.fmaterialid
-         | left join a7 on a7.flotname = a3.flotname and a7.fmaterialid = a3.fmaterialid
-         | left join a8 on a1.fsid = a8.fentryid and a1.fsbillid = a8.fid
+         |SELECT
+         |	A1238.REQNO,
+         | 	A1238.REQSTATUS,
+         | 	A1238.REQORGNAME,
+         | 	A1238.REQAPPLIDATE,
+         | 	A1238.REQPRONO,
+         | 	A1238.SALEORGNAME,
+         | 	A1238.SALER,
+         | 	A1238.SALENO,
+         | 	A1238.PURNO,
+         | 	A1238.PURSTATUS,
+         | 	A1238.SUPPLIERNAME,
+         | 	A1238.PURDEPTNMEA,
+         | 	A1238.PURCHASERNAME,
+         | 	A1238.MATERNO,
+         | 	A1238.MATERNAME,
+         | 	A1238.BRANDNAME,
+         | 	A1238.SPECIFICATION,
+         | 	A1238.TESTTYPE,
+         | 	A1238.SALECREADATE,
+         | 	A1238.SALEAPPDATE,
+         | 	A1238.REQCREADATE,
+         | 	A1238.REQAPPDATE,
+         | 	A1238.PURCREADATE,
+         | 	A1238.PURAPPDATE,
+         | 	A1238.INCREADATE,
+         | 	A1238.INAPPDATE,
+         | 	A5.FCREATEDATE AS SENDCREADATE,
+         | 	A5.FAPPROVEDATE AS SENDAPPDATE,
+         | 	A7.FCREATEDATE AS OUTCREADATE,
+         | 	A7.FAPPROVEDATE AS OUTAPPDATE,
+         | 	(UNIX_TIMESTAMP(CAST(A1238.SALEAPPDATE AS TIMESTAMP)) - UNIX_TIMESTAMP(CAST(A1238.SALECREADATE AS TIMESTAMP))) / 3600 / 24.0 AS SALFORDATE,
+         | 	(UNIX_TIMESTAMP(CAST(A1238.REQAPPDATE AS TIMESTAMP)) - UNIX_TIMESTAMP(CAST(A1238.REQCREADATE AS TIMESTAMP))) / 3600 / 24.0 AS REQFORDATE,
+         | 	(UNIX_TIMESTAMP(CAST(A1238.PURAPPDATE AS TIMESTAMP)) - UNIX_TIMESTAMP(CAST(A1238.REQAPPDATE AS TIMESTAMP))) / 3600 / 24.0 AS POOFORDATE,
+         | 	A1238.REQQTY,
+         | 	A1238.PURQTY,
+         | 	A1238.INSTOCKNO,
+         | 	A1238.INSTOCKFLOT,
+         | 	A1238.INSTOCK,
+         | 	A1238.INSTOCKQTY,
+         |	A5.FBILLNO AS NOTICENO,
+         | 	A5.NOTICEQTY AS NOTICEQTY,
+         | 	A7.FBILLNO AS OUTSTOCKNO,
+         | 	A1238.SALEQTY,
+         | 	A7.OUTSTOCKQTY AS OUTSTOCKQTY,
+         | 	A1238.PROJECTNAME,
+         | 	A1238.FCUSTOMERORDERID,
+         | 	(UNIX_TIMESTAMP(CAST(A7.FAPPROVEDATE AS TIMESTAMP)) - UNIX_TIMESTAMP(CAST(A1238.INAPPDATE AS TIMESTAMP))) / 3600 / 24.0 AS INTOOUTFORDATE
+         | FROM A1238
+         | LEFT JOIN A5 ON A5.FLOTNAME = A1238.INSTOCKFLOT AND A5.FMATERIALID = A1238.FMATERIALID
+         | LEFT JOIN A7 ON A7.FLOTNAME = A1238.INSTOCKFLOT AND A7.FMATERIALID = A1238.FMATERIALID
          |""".stripMargin)
     println("result=" + res.count())
     // 定义 MySQL 的连接信息
@@ -523,12 +798,13 @@ object ProcureMonitor {
          |	OERE.FMATERIALID,
          |	DM.FNAME MATERIALNAME
          |FROM ${TableName.ODS_ERP_RETURNSTOCK} OER
+         |LEFT JOIN ${TableName.ODS_ERP_RETURNSTOCKFIN} OERF ON OER.FID = OERF.FID
          |LEFT JOIN ${TableName.ODS_ERP_RETURNSTOCKENTRY} OERE ON OER.FID  = OERE.FID
          |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON OER.FSALESMANID = DS.FID
          |LEFT JOIN ${TableName.DIM_MATERIAL} DM ON OERE.FMATERIALID = DM.FMATERIALID
          |LEFT JOIN ${TableName.ODS_ERP_MATERIALPURCHASE} OEM ON DM.FMATERIALID = OEM.FMATERIALID
          |LEFT JOIN ${TableName.DIM_BUYER} DB ON OEM.FPURCHASERID = DB.FID
-         |WHERE FSTOCKORGID = '1' AND OER.FDOCUMENTSTATUS = 'C'
+         |WHERE FSTOCKORGID = '1' AND OER.FDOCUMENTSTATUS = 'C' AND OERF.FISGENFORIOS = '0'
          |""".stripMargin)
     println("num==============" + res.count())
     // 定义 MySQL 的连接信息

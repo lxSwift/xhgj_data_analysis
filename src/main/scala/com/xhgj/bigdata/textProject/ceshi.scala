@@ -11,7 +11,7 @@ object ceshi {
   def main(args: Array[String]): Unit = {
     val spark = SparkSession
       .builder()
-      .appName("Spark task job PayAmount_Ready.scala")
+      .appName("Spark task job ceshi.scala")
       .enableHiveSupport()
       .getOrCreate()
 
@@ -25,110 +25,96 @@ object ceshi {
     //应付单列表, 主表,单据状态只取已审核的数据以及结算组织为万聚的
 
 
-        val result = spark.sql(
+        spark.sql(
           s"""
-             |select
-             |  BT.FNAME FBILLTYPEID,--单据类型
-             |  CASE
-             |    WHEN PAY.FBUSINESSTYPE ='CG' THEN '普通采购'
-             |    WHEN PAY.FBUSINESSTYPE ='FY' THEN '费用采购'
-             |    WHEN PAY.FBUSINESSTYPE ='ZC' THEN '资产采购'
-             |    ELSE '其他采购' END AS FBUSINESSTYPE,--业务类型
-             |  PAY.FDATE,--业务日期
-             |  SUP.FNAME FSUPPLIERNAME,--供应商
-             |  PAY.FBILLNO,--增值税发票号
-             |  CUR.FNAME FCURRENCY,--币别
-             |  PAY.FALLAMOUNTFOR ALLAMOUNT,--价税合计_总
-             |  PAY.FENDDATE,--到期日
-             |  ORG.fname FSETTLEORG,--结算组织
-             |  ORG2.FNAME FPURCHASEORG,--采购组织
-             |  DEP.FNAME FPURCHASEDEPT,--采购部门
-             |  BUY.FNAME FPURCHASERNAME,--采购员
-             |  BUY.FNUMBER FPURCHASERNUMBER,--采购员编号
-             |  "已审核" AS FDOCUMENTSTATUS,--单据状态
-             |  ORG3.FNAME FPAYORGID,--付款组织
-             |  MAT.FNUMBER FMATERIALID,--物料编号
-             |  MAT.FSPECIFICATION,--规格型号
-             |  MAT.FNAME FMATERIALIDNAME,--物料名称
-             |  UNIT.fname FPRICEUNITID,--计价单位
-             |  PAT_E.FPRICE,--单价
-             |  PAT_E.FPRICEQTY,--计价数量
-             |  PAT_E.FTAXPRICE,--含税单价
-             |  PAT_E.FPRICEWITHTAX,--含税净价
-             |  PAT_E.FENTRYTAXRATE,--税率
-             |  PAT_E.FCOMMENT,--备注
-             |  PAT_E.FENTRYDISCOUNTRATE,--折扣率
-             |  PAT_E.FSOURCEBILLNO,--源单编号
-             |  PAT_E.FORDERNUMBER,--采购订单号
-             |  CASE
-             |    WHEN PAT_E.FSOURCETYPE = 'PUR_MRB' THEN '采购退料单'
-             |    WHEN PAT_E.FSOURCETYPE = 'PUR_InitMRS' THEN '期初采购退料单'
-             |    WHEN PAT_E.FSOURCETYPE = 'PAEZ_SubContract' THEN '分包合同'
-             |    WHEN PAT_E.FSOURCETYPE = 'STK_InitInStock' THEN '期初采购入库单'
-             |    WHEN PAT_E.FSOURCETYPE = 'STK_InStock' THEN '采购入库单'
-             |    WHEN PAT_E.FSOURCETYPE = 'AP_Payable' THEN '应付单'
-             |    WHEN PAT_E.FSOURCETYPE = 'IOS_APSettlement' THEN '应付结算清单'
-             |    WHEN PAT_E.FSOURCETYPE = 'PUR_PurchaseOrder' THEN '采购订单'
-             |    ELSE '未知源单类型' END AS FSOURCETYPE,--源单类型
-             |  PAT_E.FDISCOUNTAMOUNTFOR,--折扣额
-             |  PAT_E.FNOTAXAMOUNTFOR,--不含税金额
-             |  PAT_E.FTAXAMOUNTFOR,--税额
-             |  PAT_E.FALLAMOUNTFOR,--价税合计_单物料
-             |  PAT_E.FBASICUNITQTY,--计价基本数量
-             |  LOT.FNAME FLOTNAME,--批号
-             |  PAT_E.FTAXAMOUNT,--税额本位币
-             |  PAT_E.FALLAMOUNT,--价税合计本位币
-             |  PAT_E.FNOTAXAMOUNT,--不含税额本位币
-             |  CASE
-             |    WHEN PAT_O.FISFREE = '1' THEN '是'
-             |    WHEN PAT_O.FISFREE = '0' THEN '否'
-             |    ELSE '未知' END AS FISFREE,--是否赠品
-             |  UNIT2.FNAME FLOTUNIT,--库存单位
-             |  PAT_O.FSTOCKQTY FLOTQTY,--库存数量
-             |  PAT_O.FSTOCKBASEQTY FLOTBASESENDQTY,--库存基本数量
-             |  PAT_E.FPAYMENTAMOUNT,--已结算金额
-             |  MAT.FDESCRIPTION,--描述
-             |  ENT.FNAME F_PAEZ_BASE,--品牌
-             |  STO.FNAME STOCKNAME,--仓库
-             |  PAT_E.F_PXDF_TEXT SALORDERNUMBER,--销售单号
-             |  SAL.FNAME SALEMAN ,--销售员
-             |  SAL.fdeptname FDEPTNAME,--销售部门
-             |  PRO.fnumber PROJECTNO,--项目编号
-             |  PRO.FNAME PROJECTNAME,--项目名称
-             |  PAT_E.F_PXDF_PRICE,--参考含税调拨价
-             |  PAT_E.F_PXDF_PRICE1,--调拨单价差值
-             |  ENTRY.FNAME CUST_ENTRY,--事业部
-             |  PRO.fnumber F_PROJECTNO,--项目编码
-             |  FLE.FNAME FLEX,--仓位
-             |  PRO.FBEHALFINVOICERATIO DKBL,--代开比率
-             |  CUST.FNAME khr,--考核类别
-             |  row_number() over(ORDER BY PAY.FDATE) fid --主键id
-             |from ${TableName.ODS_ERP_PAYABLE} PAY
-             |JOIN ${TableName.ODS_ERP_PAYABLEENTRY} PAT_E ON PAT_E.FID = PAY.FID
-             |LEFT JOIN ${TableName.ODS_ERP_PAYABLEENTRY_O} PAT_O ON PAT_E.fentryid = PAT_O.fentryid
-             |LEFT JOIN ${TableName.DIM_BILLTYPE} BT ON PAY.FBILLTYPEID = BT.FBILLTYPEID
-             |LEFT JOIN ${TableName.DIM_SUPPLIER} SUP ON PAY.FSUPPLIERID = SUP.fsupplierid
-             |LEFT JOIN ${TableName.DIM_CURRENCY_ERP} CUR ON PAY.FCURRENCYID = CUR.fcurrencyid
-             |LEFT JOIN ${TableName.DIM_ORGANIZATIONS} ORG ON PAY.FSETTLEORGID = ORG.forgid
-             |LEFT JOIN ${TableName.DIM_ORGANIZATIONS} ORG2 ON PAY.FPURCHASEORGID = ORG2.forgid
-             |LEFT JOIN ${TableName.DIM_DEPARTMENT} DEP ON PAY.FPURCHASEDEPTID = DEP.fdeptid
-             |LEFT JOIN ${TableName.DIM_BUYER} BUY ON PAY.FPURCHASERID = BUY.fid
-             |LEFT JOIN ${TableName.DIM_ORGANIZATIONS} ORG3 ON PAY.FPAYORGID = ORG3.forgid
-             |LEFT JOIN ${TableName.DIM_MATERIAL} MAT ON PAT_E.FMATERIALID = MAT.FMATERIALID
-             |LEFT JOIN ${TableName.DIM_UNIT} UNIT ON PAT_E.FPRICEUNITID = UNIT.funitid
-             |LEFT JOIN ${TableName.DIM_LOTMASTER} LOT ON PAT_O.FLOT = LOT.flotid
-             |LEFT JOIN ${TableName.DIM_UNIT} UNIT2 ON PAT_O.FSTOCKUNITID =UNIT2.funitid
-             |LEFT JOIN ${TableName.DIM_PAEZ_ENTRY100020} ENT ON MAT.F_PAEZ_BASE = ENT.fid
-             |LEFT JOIN ${TableName.DIM_STOCK} STO ON PAT_E.F_PAEZ_BASE = STO.fstockid
-             |LEFT JOIN ${TableName.DIM_SALEMAN} SAL ON PAT_E.F_PXDF_BASE= SAL.fid
-             |LEFT JOIN ${TableName.DIM_PROJECTBASIC} PRO ON PAT_E.F_PROJECTNO = PRO.fid
-             |LEFT JOIN ${TableName.DIM_ENTRY100504} ENTRY ON PAT_E.F_PAEZ_BASE1 = ENTRY.fid
-             |LEFT JOIN ${TableName.DIM_FLEXVALUESENTRY} FLE ON PAT_E.F_PAEZ_FLEX = FLE.FENTRYID
-             |LEFT JOIN ${TableName.DIM_CUST100501} CUST ON CUST.fid = MAT.f_khr
-             |WHERE PAY.FDOCUMENTSTATUS = 'C' and PAY.FSETTLEORGID = '1'
-             |""".stripMargin)
+             |select staffname,deptname from (
+             |select ds.fname staffname,
+             |	dd.fname deptname,
+             |	row_number() over(partition by ds.fname order by dd.fcreatedate desc) rn
+             |from ${TableName.DIM_STAFF} ds
+             |left join dw_xhgj.dim_department dd on ds.fdeptid = dd.fdeptid
+             |where ds.FUSEORGID = 1
+             |) dsdd where rn = 1
+             |""".stripMargin).createOrReplaceTempView("staff")
+    spark.sql(
+      s"""
+         |select
+         | 	oep.fbillno,
+         |	oep.fcreatedate,
+         |	oep.fapprovedate,
+         |	oepe.fmaterialid,
+         |	oepr.fsrcbillno,
+         |	case when oep.fdocumentstatus = 'Z' then '暂存'
+         | 		 when oep.fdocumentstatus = 'A' then '创建'
+         | 		 when oep.fdocumentstatus = 'B' then '审核中'
+         | 		 when oep.fdocumentstatus = 'C' then '已审核'
+         | 		 when oep.fdocumentstatus = 'D' then '重新审核'
+         | 		 else oep.fdocumentstatus end as fdocumentstatus,
+         |	ds.fname suppliername ,
+         |	staff.deptname purdeptnmea,
+         |	staff.staffname purchasername,
+         |	oepl.fsbillid,
+         |	oepl.fsid,
+         |	oep.fid,
+         |	oepe.fentryid,
+         |	if(oepe.FQTY='',null,oepe.FQTY) as purqty
+         |from ods_xhgj.ODS_ERP_POORDER oep
+         |left join ods_xhgj.ODS_ERP_POORDERENTRY oepe on oep.fid = oepe.fid
+         |left join ods_xhgj.ODS_ERP_POORDERENTRY_R oepr on oepe.fentryid = oepr.fentryid
+         |left join ods_xhgj.ODS_ERP_POORDERENTRY_LK oepl on oepl.fentryid = oepe.fentryid
+         |LEFT JOIN dw_xhgj.dim_user du on oep.fcreatorid = du.fuserid
+         |left join staff on staff.staffname = du.fname
+         |LEFT JOIN dw_xhgj.DIM_SUPPLIER ds ON oep.fsupplierid = ds.fsupplierid
+         | WHERE oep.FBILLNO <> '' and oepr.FSRCBILLNO <> '' and oep.fpurchaseorgid = '1'
+         |""".stripMargin).createOrReplaceTempView("a2")
+
+    spark.sql(
+      s"""
+         |SELECT oei.fbillno,
+         |	oei.fcreatedate,
+         |	oei.fapprovedate,
+         |	oeie.fmaterialid,
+         |	oeie.fsrcbillno,
+         |	dl.fname flotname,
+         |	ds.fname stockname,
+         |	oeil.fsbillid,
+         |	oeil.fsid,
+         |	if(oeie.FREALQTY='',null,oeie.FREALQTY) as instockqty
+         |FROM ods_xhgj.ODS_ERP_INSTOCK oei
+         |left join ods_xhgj.ODS_ERP_INSTOCKENTRY oeie on oei.fid = oeie.fid
+         |left join ods_xhgj.ODS_ERP_INSTOCKENTRY_LK oeil on oeie.fentryid = oeil.fentryid
+         |left join dw_xhgj.DIM_LOTMASTER dl on dl.flotid = oeie.flot
+         |left join dw_xhgj.dim_stock ds on  ds.fstockid = oeie.FSTOCKID
+         |WHERE oei.FBILLNO <> '' and oeie.FSRCBILLNO <>'' and oei.FSTOCKORGID = '1'
+         |""".stripMargin).createOrReplaceTempView("a3")
+
+    val result = spark.sql(
+      s"""
+         |select
+         | 	a2.fbillno,
+         |	a2.fcreatedate as purcreadate,
+         |	a2.fapprovedate as purappdate,
+         |	a2.fdocumentstatus,
+         |	a2.suppliername ,
+         |	a2.purdeptnmea,
+         |	a2.purchasername,
+         |	a2.fsbillid,
+         |	a2.fsid,
+         |	a2.fid,
+         |	a2.fentryid,
+         |	a3.fbillno as purno,
+         |	a3.fcreatedate as increadate,
+         |	a3.fapprovedate  as inappdate,
+         |	a3.flotname,
+         |	a3.stockname,
+         |	COALESCE (a3.instockqty,a2.purqty)*1 as purqty,
+         |	a3.instockqty
+         |from a2
+         |left join a3 on a3.fsbillid = a2.fid and a3.fsid = a2.fentryid
+         |where  a2.fbillno = 'WJ00003607'
+         |""".stripMargin)
         println("result="+result.count())
-        result.show(10)
+        result.show(100)
 
   }
 }

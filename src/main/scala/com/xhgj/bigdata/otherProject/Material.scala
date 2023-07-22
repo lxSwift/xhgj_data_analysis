@@ -103,6 +103,7 @@ object Material {
          |  ch.c_price_m price_m, --市场价
          |  ch.c_price price, --商城价
          |  ch.c_transfer_price transfer_price, --调拨价
+         |  ch.c_project_reference_price project_refprice,--项目参考价
          |  bd.c_erp_code erp_code, --物料品牌（编码）
          |  CONCAT_WS('/',nvl(bd.c_name_en,''),nvl(bd.c_name_cn,'')) erp_name, --物料品牌（名称）
          |  un.c_name unname, --基本单位（名称）
