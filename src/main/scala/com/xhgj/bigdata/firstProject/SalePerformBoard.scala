@@ -1,6 +1,6 @@
 package com.xhgj.bigdata.firstProject
 
-import com.xhgj.bigdata.util.{Config, TableName}
+import com.xhgj.bigdata.util.{AddressAnalysis, Config, TableName}
 import org.apache.spark.sql.SparkSession
 
 import java.util.Properties
@@ -27,14 +27,20 @@ object SalePerformBoard {
     spark.stop()
 }
   def runRES(spark: SparkSession)={
-
+    /**
+     * DC.F_PAEZ_CHECKBOX = 0是取非内部客户的订单,COALESCE(OER.F_ORDERTYPE,0) <> 1是过滤掉大票订单
+     * 大小票应收单判断逻辑 ODS_ERP_RECEIVABLE应收单的订单类型F_ORDERTYPE数值为1 大票订单  2 小票订单  3供应链订单
+     * FPRICE不含税单价
+     * FCOSTAMTSUM成本去税总额
+     */
+    spark.udf.register("address_get",(str:String) =>addressget(str))
     val res = spark.sql(
       s"""
         |SELECT DS.FNAME AS SALENAME
         |	,OER.F_PAEZ_TEXT22	AS  SALECOMPANY
         |	,OER.F_PAEZ_TEXT221 AS SALEDEPT
         |	,SUBSTRING(OER.FDATE,1,10) AS BUSINESSDATE
-        |	,dcm.c_province as salearea
+        |	,address_get(ifnull(OES.F_PAEZ_TEXT2,'a')) as salearea
         |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END AS PERFORMANCEFORM
         |	,CASE WHEN DWP.IS_DSHYW = '是' THEN '电商化业务'
@@ -43,10 +49,12 @@ object SalePerformBoard {
         |		ELSE '其他' END AS PROJECTSHORTNAME
         |	,DWC.COMPANYSHORTNAME
         |	,CAST(SUM(OERE.FPRICEQTY * OERE.FPRICE) AS DECIMAL(19,2)) AS SALEAMOUNT
+        | ,CAST(SUM(OERE.FPRICEQTY * OERE.FTAXPRICE) AS DECIMAL(19,2)) AS SALETAXAMOUNT
+        | ,OERE.F_PXDF_TEXT PROJECTNO,
+        | CAST(sum(OERE.FCOSTAMTSUM) AS DECIMAL(19,2)) FCOSTAMTSUM
         |FROM ${TableName.ODS_ERP_RECEIVABLE} OER
         |LEFT JOIN ${TableName.ODS_ERP_RECEIVABLEENTRY} OERE ON OER.FID = OERE.FID
         |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FCUSTOMERID = DC.FCUSTID
-        |left join ${TableName.DIM_CUSTOMERMANAGE} dcm on IF(nvl(dc.fmdmnumber,'')='',0,dc.fmdmnumber) = dcm.c_mdm_code
         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.F_PXDF_TEXT = DP.FNUMBER
         |LEFT JOIN ${TableName.ODS_ERP_SALORDER} OES ON IF(OERE.F_PAEZ_Text='',0,OERE.F_PAEZ_Text) = OES.FBILLNO
         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
@@ -57,7 +65,7 @@ object SalePerformBoard {
         |	,OER.F_PAEZ_TEXT22
         |	,OER.F_PAEZ_TEXT221
         |	,SUBSTRING(OER.FDATE,1,10)
-        |	,dcm.c_province
+        |	,OES.F_PAEZ_TEXT2
         |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END
         |	,CASE WHEN DWP.IS_DSHYW = '是' THEN '电商化业务'
@@ -65,6 +73,7 @@ object SalePerformBoard {
         |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
         |		ELSE '其他' END
         |	,DWC.COMPANYSHORTNAME
+        | ,OERE.F_PXDF_TEXT
         |""".stripMargin)
 
 
@@ -86,6 +95,10 @@ object SalePerformBoard {
     // 将 DataFrame 中的数据保存到 MySQL 中(直接把原表删除, 建新表, 很暴力)
     res.write.mode("overwrite").jdbc(url, table, props)
 
+  }
+
+  def addressget(infoadd:String) = {
+    AddressAnalysis.provincesMatch(infoadd)
   }
 
 }
