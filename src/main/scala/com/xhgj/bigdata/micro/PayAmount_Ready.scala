@@ -47,7 +47,7 @@ object PayAmount_Ready {
          |join ODS_XHGJ.ODS_ERP_RECEIVABLEENTRY b on a.fid=b.fid
          |left join DW_XHGJ.DIM_CUSTOMER cus on cus.fcustid=a.FCUSTOMERID
          |left join DW_XHGJ.DIM_SALEMAN sal on sal.fid=a.FSALEERID
-         |where a.FDOCUMENTSTATUS='C'
+         |where a.FDOCUMENTSTATUS='C' AND COALESCE(a.F_ORDERTYPE,'0') = '1'
          |""".stripMargin)
 
     //收款单相关信息更新
