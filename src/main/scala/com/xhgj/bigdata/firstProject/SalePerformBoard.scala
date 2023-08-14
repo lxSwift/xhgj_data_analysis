@@ -28,20 +28,22 @@ object SalePerformBoard {
 }
   def runRES(spark: SparkSession)={
     /**
+     * 需要拿取明细销售员
      * DC.F_PAEZ_CHECKBOX = 0是取非内部客户的订单,COALESCE(OER.F_ORDERTYPE,0) <> 1是过滤掉大票订单
      * 大小票应收单判断逻辑 ODS_ERP_RECEIVABLE应收单的订单类型F_ORDERTYPE数值为1 大票订单  2 小票订单  3供应链订单
      * FPRICE不含税单价
      * FCOSTAMTSUM成本去税总额
+     * 电商公司的项目编号是准的,但是万聚的是项目编码是准的, 这个要注意
      */
     spark.udf.register("address_get",(str:String) =>addressget(str))
     val res = spark.sql(
       s"""
         |SELECT DS.FNAME AS SALENAME
-        |	,OER.F_PAEZ_TEXT22	AS  SALECOMPANY
-        |	,OER.F_PAEZ_TEXT221 AS SALEDEPT
+        |	,big.F_PAEZ_TEXT1	AS  SALECOMPANY
+        |	,big.F_PAEZ_TEXT2 AS SALEDEPT
         |	,SUBSTRING(OER.FDATE,1,10) AS BUSINESSDATE
         |	,address_get(ifnull(OES.F_PAEZ_TEXT2,'a')) as salearea
-        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
+        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR DP.fnumber LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END AS PERFORMANCEFORM
         |	,CASE WHEN DWP.IS_DSHYW = '是' THEN '电商化业务'
         |		ELSE '非电商化业务' END AS IS_DSHYW
@@ -50,30 +52,31 @@ object SalePerformBoard {
         |	,DWC.COMPANYSHORTNAME
         |	,CAST(SUM(OERE.FPRICEQTY * OERE.FPRICE) AS DECIMAL(19,2)) AS SALEAMOUNT
         | ,CAST(SUM(OERE.FPRICEQTY * OERE.FTAXPRICE) AS DECIMAL(19,2)) AS SALETAXAMOUNT
-        | ,OERE.F_PXDF_TEXT PROJECTNO,
+        | ,DP.fnumber PROJECTNO,
         | CAST(sum(OERE.FCOSTAMTSUM) AS DECIMAL(19,2)) FCOSTAMTSUM
         |FROM ${TableName.ODS_ERP_RECEIVABLE} OER
         |LEFT JOIN ${TableName.ODS_ERP_RECEIVABLEENTRY} OERE ON OER.FID = OERE.FID
         |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FCUSTOMERID = DC.FCUSTID
-        |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.F_PXDF_TEXT = DP.FNUMBER
+        |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.fid
+        |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
         |LEFT JOIN ${TableName.ODS_ERP_SALORDER} OES ON IF(OERE.F_PAEZ_Text='',0,OERE.F_PAEZ_Text) = OES.FBILLNO
         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
-        |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON OER.FSALEERID = DS.FID
-        |LEFT JOIN ${TableName.DWD_WRITE_COMPANYNAME} DWC ON DWC.COMPANYNAME = OER.F_PAEZ_TEXT22
+        |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON OERE.F_PAEZ_BASE2 = DS.FID
+        |LEFT JOIN ${TableName.DWD_WRITE_COMPANYNAME} DWC ON DWC.COMPANYNAME = big.F_PAEZ_TEXT1
         |WHERE DC.F_PAEZ_CHECKBOX = 0 AND COALESCE(OER.F_ORDERTYPE,0) <> 1 AND OER.FDOCUMENTSTATUS = 'C'
         |GROUP BY DS.FNAME
-        |	,OER.F_PAEZ_TEXT22
-        |	,OER.F_PAEZ_TEXT221
+        |	,big.F_PAEZ_TEXT1
+        |	,big.F_PAEZ_TEXT2
         |	,SUBSTRING(OER.FDATE,1,10)
         |	,OES.F_PAEZ_TEXT2
-        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
+        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR DP.fnumber LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END
         |	,CASE WHEN DWP.IS_DSHYW = '是' THEN '电商化业务'
         |		ELSE '非电商化业务' END
         |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
         |		ELSE '其他' END
         |	,DWC.COMPANYSHORTNAME
-        | ,OERE.F_PXDF_TEXT
+        | ,DP.fnumber
         |""".stripMargin)
 
 

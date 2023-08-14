@@ -38,8 +38,8 @@ object SaleOrder {
          | cast(dp.fname as varchar(1000)) as projectname,
          | cast(dp.fnumber as varchar(255)) as projectno ,
          | cast(dp.fcustomerorderid as varchar(128)) as customerorderid,
-         | cast(oes.f_paez_text13 as varchar(255)) as salescompany,
-         | cast(oes.f_paez_text14 as varchar(128)) as salesdept,
+         | cast(big.F_PAEZ_TEXT1 as varchar(255)) as salescompany,
+         | cast(big.F_PAEZ_TEXT2 as varchar(128)) as salesdept,
          | cast(du.fname as varchar(64)) as createuser,
          | cast(ds.fname as varchar(64)) as salename,
          | cast(de.fname as varchar(64)) as operatorname,
@@ -77,9 +77,12 @@ object SaleOrder {
          | 	when oes.fdocumentstatus = 'C' then '已审核'
          | 	when oes.fdocumentstatus = 'D' then '重新审核'
          | 	else oes.fdocumentstatus end as varchar(32)) as documentstatus,
-         | oesee.FSTOCKBASESTOCKOUTQTY
+         | oesee.FSTOCKBASESTOCKOUTQTY,
+         | org.fname SALEORGNAME
          |from ${TableName.DWD_SAL_ORDER} oes
          |left join ${TableName.DIM_PROJECTBASIC} dp on oes.fprojectbasic  = dp.fid
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on dp.fnumber = BIG.fbillno
+         |left join ${TableName.DIM_ORGANIZATIONS} org on oes.FSALEORGID = org.forgid
          |left join ${TableName.DIM_USER} du on oes.FCREATORID = du.fuserid
          |left join ${TableName.DIM_SALEMAN} ds on oes.fsalerid = ds.fid
          |left join ${TableName.DIM_EMPINFO} de on oes.f_paez_base3 = de.fid
@@ -107,10 +110,10 @@ object SaleOrder {
 
     // 将 DataFrame 中的数据保存到 MySQL 中(直接把原表删除, 建新表, 很暴力)
     res.write.mode("overwrite")
-      .option("createTableColumnTypes", "createdate varchar(32),projectname varchar(1000),projectno varchar(255),customerorderid varchar(1500),salescompany varchar(255),salesdept varchar(128),createuser varchar(64),salename varchar(64),operatorname varchar(64),materialno varchar(128),brand varchar(255),materialname varchar(500),specification varchar(500),qty decimal(19,4),taxprice decimal(19,4),allamount decimal(19,4),consignee varchar(64),contactphone varchar(64),shppingaddress varchar(500),isinternalcustomer varchar(32),purtype varchar(32),mrpterminatestatus varchar(32),isdx varchar(32),performanceform varchar(32) ,unitname varchar(64),note varchar(1000),saleorderno varchar(128),bill_type varchar(32),documentstatus varchar(32),fstockbasestockoutqty INT")// 明确指定 MySQL 数据库中字段的数据类型
+      .option("createTableColumnTypes", "createdate varchar(32),projectname varchar(1000),projectno varchar(255),customerorderid varchar(1500),salescompany varchar(255),salesdept varchar(128),createuser varchar(64),salename varchar(64),operatorname varchar(64),materialno varchar(128),brand varchar(255),materialname varchar(500),specification varchar(500),qty decimal(19,4),taxprice decimal(19,4),allamount decimal(19,4),consignee varchar(64),contactphone varchar(64),shppingaddress varchar(500),isinternalcustomer varchar(32),purtype varchar(32),mrpterminatestatus varchar(32),isdx varchar(32),performanceform varchar(32) ,unitname varchar(64),note varchar(1000),saleorderno varchar(128),bill_type varchar(32),documentstatus varchar(32),fstockbasestockoutqty INT,SALEORGNAME varchar(256)")// 明确指定 MySQL 数据库中字段的数据类型
       .option("batchsize", "10000")
       .option("truncate", "false")
-      .option("jdbcType", s"createdate=${VARCHAR},projectname=${VARCHAR},projectno=${VARCHAR},salescompany=${VARCHAR},salesdept=${VARCHAR},createuser=${VARCHAR},salename=${VARCHAR},operatorname=${VARCHAR},materialno=${VARCHAR},brand=${VARCHAR},materialname=${VARCHAR}},specification=${VARCHAR}},qty=${DECIMAL},taxprice=${DECIMAL},allamount=${DECIMAL},consignee=${VARCHAR},contactphone=${VARCHAR},shppingaddress=${VARCHAR},isinternalcustomer=${VARCHAR},purtype=${VARCHAR},mrpterminatestatus=${VARCHAR},isdx=${VARCHAR},performanceform=${VARCHAR},unitname=${VARCHAR},note=${VARCHAR},saleorderno=${VARCHAR},bill_type=${VARCHAR},documentstatus=${VARCHAR},fstockbasestockoutqty =${INTEGER}")   // 显式指定 SparkSQL 中的数据类型和 MySQL 中的映射关系
+      .option("jdbcType", s"createdate=${VARCHAR},projectname=${VARCHAR},projectno=${VARCHAR},salescompany=${VARCHAR},salesdept=${VARCHAR},createuser=${VARCHAR},salename=${VARCHAR},operatorname=${VARCHAR},materialno=${VARCHAR},brand=${VARCHAR},materialname=${VARCHAR}},specification=${VARCHAR}},qty=${DECIMAL},taxprice=${DECIMAL},allamount=${DECIMAL},consignee=${VARCHAR},contactphone=${VARCHAR},shppingaddress=${VARCHAR},isinternalcustomer=${VARCHAR},purtype=${VARCHAR},mrpterminatestatus=${VARCHAR},isdx=${VARCHAR},performanceform=${VARCHAR},unitname=${VARCHAR},note=${VARCHAR},saleorderno=${VARCHAR},bill_type=${VARCHAR},documentstatus=${VARCHAR},fstockbasestockoutqty =${INTEGER},SALEORGNAME=${VARCHAR}")   // 显式指定 SparkSQL 中的数据类型和 MySQL 中的映射关系
       .jdbc(url, table, props)
   }
 

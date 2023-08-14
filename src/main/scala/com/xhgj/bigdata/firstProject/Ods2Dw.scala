@@ -226,7 +226,7 @@ object Ods2Dw {
          |,OESE.FMRPTERMINATESTATUS
          |,OES.F_PAEZ_CHECKBOX
          |,OES.FBILLNO
-         |,OES.FNOTE
+         |,OESE.FNOTE
          |,OES.FDOCUMENTSTATUS
          |,OES.FPROJECTBASIC
          |,OES.FSALERID
@@ -237,6 +237,7 @@ object Ods2Dw {
          |,OES.FSALEORGID
          |,OES.FDATE
          |,OES.F_ORDERTYPE
+         |,OESE.F_PROJECTNO
          |FROM ${TableName.ODS_ERP_SALORDER} OES
          |LEFT JOIN ${TableName.ODS_ERP_SALORDERENTRY} OESE ON OES.FID = OESE.FID
          |LEFT JOIN ${TableName.ODS_ERP_SALORDERENTRY_F} OESF ON OESE.FENTRYID = OESF.FENTRYID
