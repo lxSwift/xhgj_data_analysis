@@ -29,20 +29,23 @@ object ReceivableBillboard {
   }
   def runRES(spark: SparkSession): Unit = {
 
-    //2023-05-31 以前(包含2023-05-31)的应收单数据
-    //过滤出审核状态为已审核， 销售组织为DP咸亨国际电子商务有限公司，客户名称不为DP咸亨国际电子商务有限公司，且应付单创建日期小于2023-05-31
-    //并union
-    //过滤出销售组织为DP咸亨国际科技股份有限公司以及F_PAEZ_TEXT22销售员所属公司为咸亨国际电子商务有限公司,项目简称不为中核集团,且应付单创建日期小于2023-05-31的数据
+
     /**
      * F_PAEZ_CHECKBOX定向 1代表是定向
      * F_PXDF_TEXT项目编码
+     * 2023-05-31 以前(包含2023-05-31)的应收单数据
+     * 过滤出审核状态为已审核， 销售组织为DP咸亨国际电子商务有限公司，客户名称不为DP咸亨国际电子商务有限公司，且应付单创建日期小于2023-05-31, 取F_PAEZ_TEXT22销售员所属公司为电商的
+     * 并union
+     * 过滤出销售组织为DP咸亨国际科技股份有限公司以及F_PAEZ_TEXT22销售员所属公司为咸亨国际电子商务有限公司,项目简称不为中核集团,且应付单创建日期小于2023-05-31的数据
+     *
+     * 总而言之就是获取了ERP 2023-05-31之前所有的大票订单 电商公司应收款
      */
     spark.sql(
       s"""
         |SELECT DS.FNAME AS SALENAME		--销售员
         |	,MIN(SUBSTRING(OER.FCREATEDATE,1,10)) AS BUSINESSDATE	--业务日期
-        |	,OERE.F_PXDF_TEXT	PROJECTNO	--项目编号
-        |	,OERE.F_PXDF_TEXT1 PROJECTNAME		--项目名称
+        |	,DP.fnumber	PROJECTNO	--项目编号
+        |	,DP.FNAME PROJECTNAME		--项目名称
         |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END AS PERFORMANCEFORM		--履约形式
         |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
@@ -50,15 +53,17 @@ object ReceivableBillboard {
         |	,SUM(OERE.FPRICEQTY * OERE.FTAXPRICE) AS SALEAMOUNT		--金额
         |FROM ${TableName.ODS_ERP_RECEIVABLE} OER
         |LEFT JOIN ${TableName.ODS_ERP_RECEIVABLEENTRY} OERE ON OER.FID = OERE.FID
+        |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.fid
+        |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
         |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FCUSTOMERID = DC.FCUSTID
         |LEFT JOIN ${TableName.ODS_ERP_SALORDER} OES ON IF(OERE.F_PAEZ_Text='',0,OERE.F_PAEZ_Text) = OES.FBILLNO
-        |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON OERE.F_PXDF_TEXT1 = DWP.PROJECTNAME
+        |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
         |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON OERE.F_PAEZ_BASE2 = DS.FID
-        |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FSETTLEORGID = '2297156' AND DC.FNAME != 'DP咸亨国际科技股份有限公司' AND OER.F_PAEZ_TEXT22 = '咸亨国际电子商务有限公司'
+        |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FSETTLEORGID = '2297156' AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司') AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
         |	AND SUBSTRING(OER.FCREATEDATE,1,10) <= '2023-05-31'
         |GROUP BY DS.FNAME
-        |	,OERE.F_PXDF_TEXT
-        |	,OERE.F_PXDF_TEXT1
+        |	,DP.fnumber
+        |	,DP.FNAME
         |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END
         |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
@@ -66,8 +71,8 @@ object ReceivableBillboard {
         |UNION ALL
         |SELECT DS.FNAME AS SALENAME		--销售员
         |	,MIN(SUBSTRING(OER.FCREATEDATE,1,10)) AS BUSINESSDATE	--业务日期
-        |	,OERE.F_PXDF_TEXT	PROJECTNO		--项目编号
-        |	,OERE.F_PXDF_TEXT1 PROJECTNAME		--项目名称
+        |	,DP.fnumber	PROJECTNO		--项目编号
+        |	,DP.FNAME PROJECTNAME		--项目名称
         |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END AS PERFORMANCEFORM		--履约形式
         |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
@@ -75,15 +80,17 @@ object ReceivableBillboard {
         |	,SUM(OERE.FPRICEQTY * OERE.FTAXPRICE) AS SALEAMOUNT		--金额
         |FROM ${TableName.ODS_ERP_RECEIVABLE} OER
         |LEFT JOIN ${TableName.ODS_ERP_RECEIVABLEENTRY} OERE ON OER.FID = OERE.FID
+        |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.fid
+        |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
         |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FCUSTOMERID = DC.FCUSTID
         |LEFT JOIN ${TableName.ODS_ERP_SALORDER} OES ON IF(OERE.F_PAEZ_Text='',0,OERE.F_PAEZ_Text) = OES.FBILLNO
-        |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON OERE.F_PXDF_TEXT1 = DWP.PROJECTNAME
+        |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
         |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON OERE.F_PAEZ_BASE2 = DS.FID
-        |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FSETTLEORGID = '910474' AND OER.F_PAEZ_TEXT22 = '咸亨国际电子商务有限公司'
+        |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FSETTLEORGID = '910474' AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
         |	AND DWP.PROJECTSHORTNAME != '中核集团' AND SUBSTRING(OER.FCREATEDATE,1,10) <= '2023-05-31'
         |GROUP BY DS.FNAME
-        |	,OERE.F_PXDF_TEXT
-        |	,OERE.F_PXDF_TEXT1
+        |	,DP.fnumber
+        |	,DP.FNAME
         |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END
         |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
@@ -107,7 +114,7 @@ object ReceivableBillboard {
          |	PROJECTNO,
          |	SALESMAN,
          |	PROJECTNAME,
-         |	CASE WHEN INSTR(PROJECTSHORTNAME,'-')> 0 THEN  SUBSTRING(PROJECTSHORTNAME,INSTR(PROJECTSHORTNAME,'-')+1,LENGTH(PROJECTSHORTNAME))
+         |	CASE WHEN INSTR(PROJECTSHORTNAME,'-')> 0 THEN SUBSTRING(PROJECTSHORTNAME,INSTR(PROJECTSHORTNAME,'-')+1,LENGTH(PROJECTSHORTNAME))
          |		ELSE PROJECTSHORTNAME END
          |""".stripMargin).createOrReplaceTempView("A2")
     //2023-06-01以后(含2023-06-01)的应收单数据
@@ -115,8 +122,8 @@ object ReceivableBillboard {
       s"""
          |SELECT DS.FNAME AS SALENAME		--销售员
          |	,MIN(SUBSTRING(OER.F_PXDF_DATE,1,10)) AS BUSINESSDATE	--业务日期(发票日期)
-         |	,OERE.F_PXDF_TEXT	PROJECTNO	--项目编号
-         |	,OERE.F_PXDF_TEXT1 PROJECTNAME		--项目名称
+         |	,DP.fnumber	PROJECTNO	--项目编号
+         |	,DP.FNAME PROJECTNAME		--项目名称
          |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
          |		ELSE '自营' END AS PERFORMANCEFORM		--履约形式
          |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
@@ -124,15 +131,17 @@ object ReceivableBillboard {
          |	,SUM(OERE.FPRICEQTY * OERE.FTAXPRICE) AS SALEAMOUNT		--金额
          |FROM ${TableName.ODS_ERP_RECEIVABLE} OER
          |LEFT JOIN ${TableName.ODS_ERP_RECEIVABLEENTRY} OERE ON OER.FID = OERE.FID
+         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.fid
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
          |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FCUSTOMERID = DC.FCUSTID
          |LEFT JOIN ${TableName.ODS_ERP_SALORDER} OES ON IF(OERE.F_PAEZ_Text='',0,OERE.F_PAEZ_Text) = OES.FBILLNO
-         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON OERE.F_PXDF_TEXT1 = DWP.PROJECTNAME
+         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
          |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON OERE.F_PAEZ_BASE2 = DS.FID
-         |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FSETTLEORGID = '2297156' AND DC.FNAME != 'DP咸亨国际科技股份有限公司' AND OER.F_PAEZ_TEXT22 = '咸亨国际电子商务有限公司'
+         |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FSETTLEORGID = '2297156' AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司') AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
          |	AND SUBSTRING(OER.FCREATEDATE,1,10) >= '2023-06-01'
          |GROUP BY DS.FNAME
-         |	,OERE.F_PXDF_TEXT
-         |	,OERE.F_PXDF_TEXT1
+         |	,DP.fnumber
+         |	,DP.FNAME
          |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
          |		ELSE '自营' END
          |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
@@ -140,8 +149,8 @@ object ReceivableBillboard {
          |UNION ALL
          |SELECT DS.FNAME AS SALENAME		--销售员
          |	,MIN(SUBSTRING(OER.F_PXDF_DATE,1,10)) AS BUSINESSDATE	--业务日期
-         |	,OERE.F_PXDF_TEXT	PROJECTNO		--项目编号
-         |	,OERE.F_PXDF_TEXT1 PROJECTNAME		--项目名称
+         |	,DP.fnumber	PROJECTNO	--项目编号
+         |	,DP.FNAME PROJECTNAME		--项目名称
          |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
          |		ELSE '自营' END AS PERFORMANCEFORM		--履约形式
          |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
@@ -149,15 +158,17 @@ object ReceivableBillboard {
          |	,SUM(OERE.FPRICEQTY * OERE.FTAXPRICE) AS SALEAMOUNT		--金额
          |FROM ${TableName.ODS_ERP_RECEIVABLE} OER
          |LEFT JOIN ${TableName.ODS_ERP_RECEIVABLEENTRY} OERE ON OER.FID = OERE.FID
+         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.fid
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
          |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FCUSTOMERID = DC.FCUSTID
          |LEFT JOIN ${TableName.ODS_ERP_SALORDER} OES ON IF(OERE.F_PAEZ_Text='',0,OERE.F_PAEZ_Text) = OES.FBILLNO
-         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON OERE.F_PXDF_TEXT1 = DWP.PROJECTNAME
+         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
          |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON OERE.F_PAEZ_BASE2 = DS.FID
-         |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FSETTLEORGID = '910474' AND OER.F_PAEZ_TEXT22 = '咸亨国际电子商务有限公司'
+         |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FSETTLEORGID = '910474' AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
          |	AND DWP.PROJECTSHORTNAME != '中核集团' AND SUBSTRING(OER.FCREATEDATE,1,10) >= '2023-06-01'
          |GROUP BY DS.FNAME
-         |	,OERE.F_PXDF_TEXT
-         |	,OERE.F_PXDF_TEXT1
+         |	,DP.fnumber
+         |	,DP.FNAME
          |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
          |		ELSE '自营' END
          |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
@@ -171,9 +182,11 @@ object ReceivableBillboard {
          |LEFT JOIN ${TableName.ODS_ERP_RECEIVEBILLENTRY} OERE ON OER.FID = OERE.FID
          |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FPAYUNIT = DC.FCUSTID
          |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.FID
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
          |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
          |WHERE OER.FPAYORGID = '2297156' AND OER.FDOCUMENTSTATUS = 'C'
-         |	AND DC.FNAME != 'DP咸亨国际科技股份有限公司' AND SUBSTRING(OER.FCREATEDATE,1,10) >= '2023-06-01' and substring(oer.fdate,1,10) >= '2023-06-01'
+         |	AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司') AND SUBSTRING(OER.FCREATEDATE,1,10) >= '2023-06-01' AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
+         | and substring(oer.fdate,1,10) >= '2023-06-01'
          |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME
          |UNION ALL
          |SELECT DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME,SUM(OERE.FRECAMOUNTFOR_E) REAMOUNT
@@ -181,8 +194,9 @@ object ReceivableBillboard {
          |LEFT JOIN ${TableName.ODS_ERP_RECEIVEBILLENTRY} OERE ON OER.FID = OERE.FID
          |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FPAYUNIT = DC.FCUSTID
          |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.FID
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
          |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
-         |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FPAYORGID = '910474' AND OER.F_PAEZ_TEXT = '咸亨国际电子商务有限公司'
+         |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FPAYORGID = '910474' AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
          |	AND DWP.PROJECTSHORTNAME != '中核集团' AND SUBSTRING(OER.FCREATEDATE,1,10) >= '2023-06-01' and substring(oer.fdate,1,10) >= '2023-06-01'
          |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME
          |""".stripMargin).createOrReplaceTempView("A4")
@@ -194,8 +208,9 @@ object ReceivableBillboard {
          |LEFT JOIN ${TableName.ODS_ERP_REFUNDBILLENTRY} OERE ON OER.FID = OERE.FID
          |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FRECTUNIT = DC.FCUSTID
          |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.FID
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
          |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
-         |WHERE OER.FPAYORGID = '2297156' AND OER.FDOCUMENTSTATUS = 'C' AND DC.FNAME != 'DP咸亨国际科技股份有限公司'
+         |WHERE OER.FPAYORGID = '2297156' AND OER.FDOCUMENTSTATUS = 'C' AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司') AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
          |	AND SUBSTRING(OER.FCREATEDATE,1,10) >= '2023-06-01' and substring(oer.fdate,1,10) >= '2023-06-01'
          |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME
          |UNION ALL
@@ -204,8 +219,9 @@ object ReceivableBillboard {
          |LEFT JOIN ${TableName.ODS_ERP_REFUNDBILLENTRY} OERE ON OER.FID = OERE.FID
          |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FRECTUNIT = DC.FCUSTID
          |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.FID
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
          |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
-         |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FPAYORGID = '910474' AND OER.F_PAEZ_TEXT = '咸亨国际电子商务有限公司'
+         |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FPAYORGID = '910474' AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
          |	AND DWP.PROJECTSHORTNAME != '中核集团' AND SUBSTRING(OER.FCREATEDATE,1,10) >= '2023-06-01' and substring(oer.fdate,1,10) >= '2023-06-01'
          |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME
          |""".stripMargin).createOrReplaceTempView("A5")
@@ -217,9 +233,11 @@ object ReceivableBillboard {
          |LEFT JOIN ${TableName.ODS_ERP_RECEIVEBILLENTRY} OERE ON OER.FID = OERE.FID
          |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FPAYUNIT = DC.FCUSTID
          |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.FID
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
          |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
          |WHERE OER.FPAYORGID = '2297156' AND OER.FDOCUMENTSTATUS = 'C'
-         |	AND DC.FNAME != 'DP咸亨国际科技股份有限公司' AND SUBSTRING(OER.FCREATEDATE,1,4) = YEAR(date_sub(current_date(),1))
+         |	AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司') AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
+         | AND SUBSTRING(OER.FCREATEDATE,1,4) = YEAR(date_sub(current_date(),1))
          |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME
          |UNION ALL
          |SELECT DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME,SUM(OERE.FRECAMOUNTFOR_E) REAMOUNT
@@ -227,8 +245,9 @@ object ReceivableBillboard {
          |LEFT JOIN ${TableName.ODS_ERP_RECEIVEBILLENTRY} OERE ON OER.FID = OERE.FID
          |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FPAYUNIT = DC.FCUSTID
          |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.FID
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
          |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
-         |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FPAYORGID = '910474' AND OER.F_PAEZ_TEXT = '咸亨国际电子商务有限公司'
+         |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FPAYORGID = '910474' AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
          |	AND DWP.PROJECTSHORTNAME != '中核集团'  AND SUBSTRING(OER.FCREATEDATE,1,4) = YEAR(date_sub(current_date(),1))
          |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME
          |""".stripMargin).createOrReplaceTempView("A6")
@@ -240,8 +259,9 @@ object ReceivableBillboard {
          |LEFT JOIN ${TableName.ODS_ERP_REFUNDBILLENTRY} OERE ON OER.FID = OERE.FID
          |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FRECTUNIT = DC.FCUSTID
          |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.FID
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
          |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
-         |WHERE OER.FPAYORGID = '2297156' AND OER.FDOCUMENTSTATUS = 'C' AND DC.FNAME != 'DP咸亨国际科技股份有限公司'
+         |WHERE OER.FPAYORGID = '2297156' AND OER.FDOCUMENTSTATUS = 'C' AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司') AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
          |	AND SUBSTRING(OER.FCREATEDATE,1,4) = YEAR(date_sub(current_date(),1))
          |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME
          |UNION ALL
@@ -250,8 +270,9 @@ object ReceivableBillboard {
          |LEFT JOIN ${TableName.ODS_ERP_REFUNDBILLENTRY} OERE ON OER.FID = OERE.FID
          |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FRECTUNIT = DC.FCUSTID
          |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.FID
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
          |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
-         |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FPAYORGID = '910474' AND OER.F_PAEZ_TEXT = '咸亨国际电子商务有限公司'
+         |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FPAYORGID = '910474' AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
          |	AND DWP.PROJECTSHORTNAME != '中核集团' AND SUBSTRING(OER.FCREATEDATE,1,4) = YEAR(date_sub(current_date(),1))
          |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME
          |""".stripMargin).createOrReplaceTempView("A7")
@@ -311,7 +332,7 @@ object ReceivableBillboard {
          |	A4.REAMOUNT AS PAYBACKAMOUNT,
          |	A5.REAMOUNT AS REFAMOUNT,
          |	CAST(COALESCE(A2.RECAMOUNT,0) AS DECIMAL(19,2))-CAST(COALESCE(A4.REAMOUNT,0) AS DECIMAL(19,2))-CAST(COALESCE(A5.REAMOUNT,0) AS DECIMAL(19,2)) AS RECAMOUNT,
-         |	DATEDIFF(FROM_UNIXTIME(UNIX_TIMESTAMP(),'yyyy-MM-dd'),DATE_FORMAT(A2.KPDATE,'yyyy-MM-dd')) AGING,
+         |	DATEDIFF(FROM_UNIXTIME(UNIX_TIMESTAMP(),'yyyy-MM-dd'),DATE_FORMAT(A2.KPDATE,'yyyy-MM-dd')) AGING, --账龄
          |	SUBSTRING(DATE_ADD(CURRENT_TIMESTAMP() ,-1),1,7) AS UPDATEMONTH,
          |	CAST(COALESCE(A6.REAMOUNT,0) AS DECIMAL(19,2)) - CAST(COALESCE(A7.REAMOUNT,0) AS DECIMAL(19,2)) AS THEYEARAMOUNT
          |FROM A1
