@@ -34,6 +34,7 @@ object SalePerformBoard {
      * FPRICE不含税单价
      * FCOSTAMTSUM成本去税总额
      * 电商公司的项目编号是准的,但是万聚的是项目编码是准的, 这个要注意
+     * 910473咸亨国际科技股份有限公司  2297171咸亨国际电子商务有限公司
      */
     spark.udf.register("address_get",(str:String) =>addressget(str))
     val res = spark.sql(
@@ -43,7 +44,8 @@ object SalePerformBoard {
         |	,big.F_PAEZ_TEXT2 AS SALEDEPT
         |	,SUBSTRING(OER.FDATE,1,10) AS BUSINESSDATE
         |	,address_get(ifnull(OES.F_PAEZ_TEXT2,'a')) as salearea
-        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR DP.fnumber LIKE '%HZXM%') THEN '非自营'
+        |	,CASE WHEN OES.F_PAEZ_CHECKBOX = 1  then '自营'
+        | WHEN DP.fnumber LIKE '%HZXM%' THEN '非自营'
         |		ELSE '自营' END AS PERFORMANCEFORM
         |	,CASE WHEN DWP.IS_DSHYW = '是' THEN '电商化业务'
         |		ELSE '非电商化业务' END AS IS_DSHYW
@@ -63,13 +65,14 @@ object SalePerformBoard {
         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
         |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON OERE.F_PAEZ_BASE2 = DS.FID
         |LEFT JOIN ${TableName.DWD_WRITE_COMPANYNAME} DWC ON DWC.COMPANYNAME = big.F_PAEZ_TEXT1
-        |WHERE DC.F_PAEZ_CHECKBOX = 0 AND COALESCE(OER.F_ORDERTYPE,0) <> 1 AND OER.FDOCUMENTSTATUS = 'C'
+        |WHERE ((OER.FSETTLEORGID = '2297171' AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司')) OR (OER.FSETTLEORGID = '910473' AND DP.FNAME not like '%中核集团%')) AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'  AND OER.FDOCUMENTSTATUS = 'C'
         |GROUP BY DS.FNAME
         |	,big.F_PAEZ_TEXT1
         |	,big.F_PAEZ_TEXT2
         |	,SUBSTRING(OER.FDATE,1,10)
         |	,OES.F_PAEZ_TEXT2
-        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR DP.fnumber LIKE '%HZXM%') THEN '非自营'
+        |	,CASE WHEN OES.F_PAEZ_CHECKBOX = 1 then '自营'
+        | WHEN DP.fnumber LIKE '%HZXM%' THEN '非自营'
         |		ELSE '自营' END
         |	,CASE WHEN DWP.IS_DSHYW = '是' THEN '电商化业务'
         |		ELSE '非电商化业务' END

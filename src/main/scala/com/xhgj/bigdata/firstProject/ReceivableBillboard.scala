@@ -46,7 +46,7 @@ object ReceivableBillboard {
         |	,MIN(SUBSTRING(OER.FCREATEDATE,1,10)) AS BUSINESSDATE	--业务日期
         |	,DP.fnumber	PROJECTNO	--项目编号
         |	,DP.FNAME PROJECTNAME		--项目名称
-        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
+        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR DP.fnumber LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END AS PERFORMANCEFORM		--履约形式
         |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
         |		ELSE '其他' END AS PROJECTSHORTNAME		--项目简称
@@ -64,7 +64,7 @@ object ReceivableBillboard {
         |GROUP BY DS.FNAME
         |	,DP.fnumber
         |	,DP.FNAME
-        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
+        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR DP.fnumber LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END
         |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
         |		ELSE '其他' END
@@ -73,7 +73,7 @@ object ReceivableBillboard {
         |	,MIN(SUBSTRING(OER.FCREATEDATE,1,10)) AS BUSINESSDATE	--业务日期
         |	,DP.fnumber	PROJECTNO		--项目编号
         |	,DP.FNAME PROJECTNAME		--项目名称
-        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
+        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR DP.fnumber LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END AS PERFORMANCEFORM		--履约形式
         |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
         |		ELSE '其他' END AS PROJECTSHORTNAME		--项目简称
@@ -91,7 +91,7 @@ object ReceivableBillboard {
         |GROUP BY DS.FNAME
         |	,DP.fnumber
         |	,DP.FNAME
-        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR OERE.F_PXDF_TEXT LIKE '%HZXM%') THEN '非自营'
+        |	,CASE WHEN (OES.F_PAEZ_CHECKBOX = 1 OR DP.fnumber LIKE '%HZXM%') THEN '非自营'
         |		ELSE '自营' END
         |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
         |		ELSE '其他' END
@@ -186,7 +186,6 @@ object ReceivableBillboard {
          |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
          |WHERE OER.FPAYORGID = '2297156' AND OER.FDOCUMENTSTATUS = 'C'
          |	AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司') AND SUBSTRING(OER.FCREATEDATE,1,10) >= '2023-06-01' AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
-         | and substring(oer.fdate,1,10) >= '2023-06-01'
          |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME
          |UNION ALL
          |SELECT DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME,SUM(OERE.FRECAMOUNTFOR_E) REAMOUNT
@@ -197,7 +196,7 @@ object ReceivableBillboard {
          |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
          |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
          |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FPAYORGID = '910474' AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
-         |	AND DWP.PROJECTSHORTNAME != '中核集团' AND SUBSTRING(OER.FCREATEDATE,1,10) >= '2023-06-01' and substring(oer.fdate,1,10) >= '2023-06-01'
+         |	AND DWP.PROJECTSHORTNAME != '中核集团' AND SUBSTRING(OER.FCREATEDATE,1,10) >= '2023-06-01'
          |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME
          |""".stripMargin).createOrReplaceTempView("A4")
     //2023-06-01以后(含2023-06-01)的收款退款单数据
@@ -211,7 +210,7 @@ object ReceivableBillboard {
          |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
          |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
          |WHERE OER.FPAYORGID = '2297156' AND OER.FDOCUMENTSTATUS = 'C' AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司') AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
-         |	AND SUBSTRING(OER.FCREATEDATE,1,10) >= '2023-06-01' and substring(oer.fdate,1,10) >= '2023-06-01'
+         |	AND SUBSTRING(OER.FCREATEDATE,1,10) >= '2023-06-01'
          |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME
          |UNION ALL
          |SELECT DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME,SUM(OERE.FREALREFUNDAMOUNTFOR)*-1 AS REAMOUNT
@@ -222,7 +221,7 @@ object ReceivableBillboard {
          |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
          |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
          |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FPAYORGID = '910474' AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
-         |	AND DWP.PROJECTSHORTNAME != '中核集团' AND SUBSTRING(OER.FCREATEDATE,1,10) >= '2023-06-01' and substring(oer.fdate,1,10) >= '2023-06-01'
+         |	AND DWP.PROJECTSHORTNAME != '中核集团' AND SUBSTRING(OER.FCREATEDATE,1,10) >= '2023-06-01'
          |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME
          |""".stripMargin).createOrReplaceTempView("A5")
     //取当年收款单收款
