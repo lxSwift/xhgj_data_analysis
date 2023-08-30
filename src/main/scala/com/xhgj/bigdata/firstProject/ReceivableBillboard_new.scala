@@ -46,13 +46,10 @@ object ReceivableBillboard_new {
          |	,MIN(SUBSTRING(OER.FDATE,1,10)) AS BUSINESSDATE	--业务日期
          |	,DP.fnumber	PROJECTNO	--项目编号
          |	,DP.FNAME PROJECTNAME		--项目名称
-         |	,CASE WHEN OES.F_PAEZ_CHECKBOX = 1 then '自营'
-         | WHEN DP.fnumber LIKE '%HZXM%' THEN '非自营'
+         |	,CASE WHEN DP.fnumber LIKE '%HZXM%' THEN '非自营'
          |		ELSE '自营' END	PERFORMANCEFORM	--履约形式
          |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
          |		ELSE '其他' END AS PROJECTSHORTNAME		--项目简称
-         |	,CAST(SUM(case when DP.FBEHALFINVOICERATIO is not null and TRIM(DP.FBEHALFINVOICERATIO) != '' and TRIM(DP.FBEHALFINVOICERATIO) != 0 then OERE.FPRICEQTY * OERE.FPRICE/DP.FBEHALFINVOICERATIO*100
-         | else OERE.FPRICEQTY * OERE.FPRICE end) AS DECIMAL(19,2)) AS SALEAMOUNT --不含税总额
          | ,CAST(SUM(case when DP.FBEHALFINVOICERATIO is not null and TRIM(DP.FBEHALFINVOICERATIO) != '' and TRIM(DP.FBEHALFINVOICERATIO) != 0 then OERE.FPRICEQTY * OERE.FTAXPRICE/DP.FBEHALFINVOICERATIO*100
          | else OERE.FPRICEQTY * OERE.FTAXPRICE end) AS DECIMAL(19,2)) AS SALETAXAMOUNT --含税总额
          |FROM ${TableName.ODS_ERP_RECEIVABLE} OER
@@ -65,142 +62,224 @@ object ReceivableBillboard_new {
          |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON OERE.F_PAEZ_BASE2 = DS.FID
          |LEFT JOIN ${TableName.DWD_WRITE_COMPANYNAME} DWC ON DWC.COMPANYNAME = big.F_PAEZ_TEXT1
          |WHERE ((OER.FSETTLEORGID = '2297171' AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司')) OR (OER.FSETTLEORGID = '910473' AND DP.FNAME not like '%中核集团%')) AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'  AND OER.FDOCUMENTSTATUS = 'C'
-         |and substring(OER.FDATE,1,4) = YEAR(DATE_SUB(CURRENT_DATE(), 1)) and  substring(OER.FDATE,1,7) < '2023-08'
+         |and substring(OER.FDATE,1,4) = YEAR(DATE_SUB(CURRENT_DATE(), 1))
          |GROUP BY DS.FNAME
          |	,DP.fnumber
          |	,DP.FNAME
-         |	,CASE WHEN OES.F_PAEZ_CHECKBOX = 1 then '自营'
-         | WHEN DP.fnumber LIKE '%HZXM%' THEN '非自营'
-         |		ELSE '自营' END
          |	,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
          |		ELSE '其他' END
          |""".stripMargin).createOrReplaceTempView("receive")
 
-    //取当年收款单收款 2297156 DP咸亨国际电子商务有限公司    910474 DP咸亨国际科技股份有限公司
-    spark.sql(
-      s"""
-         |SELECT DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME ,SUM(OERE.FRECAMOUNTFOR_E) REAMOUNT
-         |FROM ${TableName.ODS_ERP_RECEIVEBILL} OER
-         |LEFT JOIN ${TableName.ODS_ERP_RECEIVEBILLENTRY} OERE ON OER.FID = OERE.FID
-         |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FPAYUNIT = DC.FCUSTID
-         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.FID
-         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
-         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
-         |WHERE OER.FPAYORGID = '2297156' AND OER.FDOCUMENTSTATUS = 'C'
-         |	AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司') AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
-         | AND SUBSTRING(OER.FCREATEDATE,1,4) = YEAR(date_sub(current_date(),1)) and substring(OER.FCREATEDATE,1,7) < '2023-08'
-         |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME
-         |UNION ALL
-         |SELECT DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME,SUM(OERE.FRECAMOUNTFOR_E) REAMOUNT
-         |FROM ${TableName.ODS_ERP_RECEIVEBILL} OER
-         |LEFT JOIN ${TableName.ODS_ERP_RECEIVEBILLENTRY} OERE ON OER.FID = OERE.FID
-         |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FPAYUNIT = DC.FCUSTID
-         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.FID
-         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
-         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
-         |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FPAYORGID = '910474' AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
-         |	AND DWP.PROJECTSHORTNAME != '中核集团'  AND SUBSTRING(OER.FCREATEDATE,1,4) = YEAR(date_sub(current_date(),1)) and substring(OER.FCREATEDATE,1,7) < '2023-08'
-         |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME
-         |""".stripMargin).createOrReplaceTempView("A6")
-    //取当前系统日期前一天年份所有的收款退款单数据
-    spark.sql(
-      s"""
-         |SELECT DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME,SUM(OERE.FREALREFUNDAMOUNTFOR) AS REAMOUNT
-         |FROM ${TableName.ODS_ERP_REFUNDBILL} OER
-         |LEFT JOIN ${TableName.ODS_ERP_REFUNDBILLENTRY} OERE ON OER.FID = OERE.FID
-         |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FRECTUNIT = DC.FCUSTID
-         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.FID
-         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
-         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
-         |WHERE OER.FPAYORGID = '2297156' AND OER.FDOCUMENTSTATUS = 'C' AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司') AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
-         |	AND SUBSTRING(OER.FCREATEDATE,1,4) = YEAR(date_sub(current_date(),1)) and substring(OER.FCREATEDATE,1,7) < '2023-08'
-         |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME
-         |UNION ALL
-         |SELECT DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME,SUM(OERE.FREALREFUNDAMOUNTFOR) AS REAMOUNT
-         |FROM ${TableName.ODS_ERP_REFUNDBILL} OER
-         |LEFT JOIN ${TableName.ODS_ERP_REFUNDBILLENTRY} OERE ON OER.FID = OERE.FID
-         |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FRECTUNIT = DC.FCUSTID
-         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.FID
-         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
-         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
-         |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FPAYORGID = '910474' AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
-         |	AND DWP.PROJECTSHORTNAME != '中核集团' AND SUBSTRING(OER.FCREATEDATE,1,4) = YEAR(date_sub(current_date(),1)) and substring(OER.FCREATEDATE,1,7) < '2023-08'
-         |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME
-         |""".stripMargin).createOrReplaceTempView("A7")
-//    初始化
-//    val result =spark.sql(
-//      s"""
-//         |SELECT A1.SALENAME,
-//         |	COALESCE(A2.KPDATE,A1.BUSINESSDATE) AS BUSINESSDATE,
-//         |	COALESCE(A2.PROJECTNO,A1.PROJECTNO) AS PROJECTNO,
-//         |	A1.PROJECTNAME,
-//         |	A1.PERFORMANCEFORM,
-//         |	A1.PROJECTSHORTNAME,
-//         |	CAST(A1.SALEAMOUNT AS DECIMAL(19,2)) SALEAMOUNT,
-//         |	NULL AS PAYBACKAMOUNT,
-//         |	NULL AS REFAMOUNT,
-//         |	CAST(A2.RECAMOUNT AS DECIMAL(19,2)) RECAMOUNT,
-//         |	DATEDIFF(FROM_UNIXTIME(UNIX_TIMESTAMP(),'yyyy-MM-dd'),DATE_FORMAT(A2.KPDATE,'yyyy-MM-dd')) AGING,
-//         | '2023-05' UPDATEMONTH
-//         |FROM A1
-//         |FULL JOIN A2 ON A2.PROJECTNO = A1.PROJECTNO
-//         |UNION ALL
-//         |SELECT A3.SALENAME,
-//         |	A3.BUSINESSDATE,
-//         |	A3.PROJECTNO,
-//         |	A3.PROJECTNAME,
-//         |	A3.PERFORMANCEFORM,
-//         |	A3.PROJECTSHORTNAME,
-//         |	CAST(A3.SALEAMOUNT AS DECIMAL(19,2)) SALEAMOUNT,
-//         |	CAST(A4.REAMOUNT AS DECIMAL(19,2)) AS PAYBACKAMOUNT,
-//         |	CAST(A5.REAMOUNT AS DECIMAL(19,2)) AS REFAMOUNT,
-//         |	CAST(A3.SALEAMOUNT AS DECIMAL(19,2)) - CAST(A4.REAMOUNT AS DECIMAL(19,2)) - CAST(A5.REAMOUNT AS DECIMAL(19,2)) AS RECAMOUNT,
-//         |	DATEDIFF(FROM_UNIXTIME(UNIX_TIMESTAMP(),'yyyy-MM-dd'),DATE_FORMAT(A3.BUSINESSDATE,'yyyy-MM-dd')) AGING,
-//         | '2023-05' UPDATEMONTH
-//         |FROM A3
-//         |LEFT JOIN A4 ON A3.PROJECTNO = A4.FNUMBER
-//         |LEFT JOIN A5 ON A3.PROJECTNO = A5.FNUMBER
-//         |""".stripMargin)
+
     /**
-     * A1 6月前历史应收款
-     * A2 2023-05-31之前的应收款手工数据
-     * A3 2023-06-01以后(含2023-06-01)的应收单数据
-     * A4 2023-06-01以后(含2023-06-01)的收款单数据
-     * A5 2023-06-01以后(含2023-06-01)的收款退款单数据
-     * A6 取当年收款单收款
-     * A7 取当年收款退款单数据
+     * 获取2022-12-31日期以前的已开票应收款余额
      */
     spark.sql(
       s"""
          |SELECT
-         |	A1.SALENAME SALENAME,
-         |	A1.BUSINESSDATE AS BUSINESSDATE,
-         |	A1.PROJECTNO AS PROJECTNO,
-         |	A1.PROJECTNAME AS PROJECTNAME,
-         |	A1.PERFORMANCEFORM,
-         |	A1.PROJECTSHORTNAME AS PROJECTSHORTNAME,
-         |	A1.SALETAXAMOUNT,
-         |	CAST(COALESCE(A1.SALETAXAMOUNT,0) AS DECIMAL(19,2))-CAST(COALESCE(A6.REAMOUNT,0) AS DECIMAL(19,2))-CAST(COALESCE(A7.REAMOUNT,0) AS DECIMAL(19,2)) AS RECAMOUNT,
-         |	DATEDIFF(FROM_UNIXTIME(UNIX_TIMESTAMP(),'yyyy-MM-dd'),DATE_FORMAT(A1.BUSINESSDATE,'yyyy-MM-dd')) AGING, --账龄
-         |	SUBSTRING(DATE_ADD(CURRENT_TIMESTAMP() ,-1),1,7) AS UPDATEMONTH,
-         |	CAST(COALESCE(A6.REAMOUNT,0) AS DECIMAL(19,2)) - CAST(COALESCE(A7.REAMOUNT,0) AS DECIMAL(19,2)) AS THEYEARAMOUNT
-         |FROM receive A1
-         |LEFT JOIN A6 ON A1.PROJECTNO = A6.FNUMBER
-         |LEFT JOIN A7 ON A1.PROJECTNO = A7.FNUMBER
-         |""".stripMargin).createOrReplaceTempView("result")
+         |  MAX(from_unixtime(unix_timestamp(OERE.KPDATE, 'yyyy/M/dd'),'yyyy-MM-dd')) FDATE,
+         |  SUM(OERE.RECAMOUNT) RECAMOUNT,
+         |  OERE.SALNAME,
+         |  OERE.PROJECTNAME PROJECTNO,
+         |  DP.FNAME PROJECTNAME,
+         |  CASE WHEN OERE.PROJECTNAME LIKE '%HZXM%' THEN '非自营'
+         |		ELSE '自营' END	PERFORMANCEFORM,
+         |  CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
+         |		ELSE '其他' END as PROJECTSHORTNAME
+         |FROM
+         | ${TableName.DWD_HISTORY_RECEIVABLEENTRY} OERE
+         | LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.PROJECTNAME = DP.fnumber
+         | LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
+         |GROUP BY OERE.SALNAME,OERE.PROJECTNAME,DP.FNAME,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
+         |		ELSE '其他' END
+         |""".stripMargin).createOrReplaceTempView("history_rece")
+
+
+    /**
+     *获取2023年以前的已发货
+     */
+    spark.sql(
+      s"""
+         |SELECT DS.FNAME AS SALENAME		--销售员
+         |	,MIN(SUBSTRING(OER.FDATE,1,10)) AS BUSINESSDATE	--业务日期
+         |	,DP.fnumber	PROJECTNO	--项目编号
+         | ,CAST(SUM(case when DP.FBEHALFINVOICERATIO is not null and TRIM(DP.FBEHALFINVOICERATIO) != '' and TRIM(DP.FBEHALFINVOICERATIO) != 0 then OERE.FPRICEQTY * OERE.FTAXPRICE/DP.FBEHALFINVOICERATIO*100
+         | else OERE.FPRICEQTY * OERE.FTAXPRICE end) AS DECIMAL(19,2)) AS SALETAXAMOUNT --含税总额
+         |FROM ${TableName.ODS_ERP_RECEIVABLE} OER
+         |LEFT JOIN ${TableName.ODS_ERP_RECEIVABLEENTRY} OERE ON OER.FID = OERE.FID
+         |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FCUSTOMERID = DC.FCUSTID
+         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.fid
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
+         |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON OERE.F_PAEZ_BASE2 = DS.FID
+         |WHERE ((OER.FSETTLEORGID = '2297171' AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司')) OR (OER.FSETTLEORGID = '910473' AND DP.FNAME not like '%中核集团%')) AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'  AND OER.FDOCUMENTSTATUS = 'C'
+         |and SUBSTRING(OER.FDATE,1,4) < '2023'
+         |GROUP BY DS.FNAME,DP.fnumber
+         |""".stripMargin).createOrReplaceTempView("all_fhrece")
+
+    /**
+     * 获取已开票口径2023以前所有数据
+     */
+    spark.sql(
+      s"""
+         |SELECT DS.FNAME AS SALENAME		--销售员
+         |	,MIN(SUBSTRING(OER.FDATE,1,10)) AS BUSINESSDATE	--业务日期
+         |	,DP.fnumber	PROJECTNO	--项目编号
+         | ,CAST(SUM( OERE.FPRICEQTY * OERE.FTAXPRICE ) AS DECIMAL(19,2)) AS SALETAXAMOUNT --含税总额
+         |FROM ${TableName.ODS_ERP_RECEIVABLE} OER
+         |LEFT JOIN ${TableName.ODS_ERP_RECEIVABLEENTRY} OERE ON OER.FID = OERE.FID
+         |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FCUSTOMERID = DC.FCUSTID
+         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.fid
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
+         |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON OERE.F_PAEZ_BASE2 = DS.FID
+         |WHERE ((OER.FSETTLEORGID = '2297156' AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司')) OR (OER.FSETTLEORGID = '910474' AND DP.FNAME not like '%中核集团%')) AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'  AND OER.FDOCUMENTSTATUS = 'C'
+         |AND SUBSTRING(OER.FDATE,1,4) < '2023'
+         |GROUP BY DS.FNAME,DP.fnumber
+         |""".stripMargin).createOrReplaceTempView("kaipiao")
+
+
+
+    //取当年收款单收款 2297156 DP咸亨国际电子商务有限公司    910474 DP咸亨国际科技股份有限公司
+    spark.sql(
+      s"""
+         |SELECT DS.FNAME SALENAME,DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME ,SUM(OERE.FRECAMOUNTFOR_E) REAMOUNT
+         |FROM ${TableName.ODS_ERP_RECEIVEBILL} OER
+         |LEFT JOIN ${TableName.ODS_ERP_RECEIVEBILLENTRY} OERE ON OER.FID = OERE.FID
+         |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FPAYUNIT = DC.FCUSTID
+         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.FID
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
+         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
+         |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON OER.FSALEERID = DS.FID
+         |WHERE OER.FPAYORGID = '2297156' AND OER.FDOCUMENTSTATUS = 'C'
+         |	AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司') AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
+         | AND SUBSTRING(OER.FCREATEDATE,1,4) = YEAR(date_sub(current_date(),1))
+         |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME,DS.FNAME
+         |UNION ALL
+         |SELECT DS.FNAME SALENAME,DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME,SUM(OERE.FRECAMOUNTFOR_E) REAMOUNT
+         |FROM ${TableName.ODS_ERP_RECEIVEBILL} OER
+         |LEFT JOIN ${TableName.ODS_ERP_RECEIVEBILLENTRY} OERE ON OER.FID = OERE.FID
+         |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FPAYUNIT = DC.FCUSTID
+         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.FID
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
+         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
+         |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON OER.FSALEERID = DS.FID
+         |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FPAYORGID = '910474' AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
+         |	AND DWP.PROJECTSHORTNAME != '中核集团'  AND SUBSTRING(OER.FCREATEDATE,1,4) = YEAR(date_sub(current_date(),1))
+         |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME,DS.FNAME
+         |""".stripMargin).createOrReplaceTempView("A6")
+    //取当前系统日期前一天年份所有的收款退款单数据
+    spark.sql(
+      s"""
+         |SELECT DS.FNAME SALENAME,DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME,SUM(OERE.FREALREFUNDAMOUNTFOR) AS REAMOUNT
+         |FROM ${TableName.ODS_ERP_REFUNDBILL} OER
+         |LEFT JOIN ${TableName.ODS_ERP_REFUNDBILLENTRY} OERE ON OER.FID = OERE.FID
+         |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FRECTUNIT = DC.FCUSTID
+         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.FID
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
+         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
+         |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON OER.FSALEERID = DS.FID
+         |WHERE OER.FPAYORGID = '2297156' AND OER.FDOCUMENTSTATUS = 'C' AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司') AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
+         |	AND SUBSTRING(OER.FCREATEDATE,1,4) = YEAR(date_sub(current_date(),1))
+         |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME,DS.FNAME
+         |UNION ALL
+         |SELECT DS.FNAME SALENAME,DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME,SUM(OERE.FREALREFUNDAMOUNTFOR) AS REAMOUNT
+         |FROM ${TableName.ODS_ERP_REFUNDBILL} OER
+         |LEFT JOIN ${TableName.ODS_ERP_REFUNDBILLENTRY} OERE ON OER.FID = OERE.FID
+         |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FRECTUNIT = DC.FCUSTID
+         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.FID
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
+         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
+         |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON OER.FSALEERID = DS.FID
+         |WHERE OER.FDOCUMENTSTATUS = 'C' AND OER.FPAYORGID = '910474' AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'
+         |	AND DWP.PROJECTSHORTNAME != '中核集团' AND SUBSTRING(OER.FCREATEDATE,1,4) = YEAR(date_sub(current_date(),1))
+         |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME,DS.FNAME
+         |""".stripMargin).createOrReplaceTempView("A7")
+
+    /**
+     * receive 2023年发货
+     * history_rece 手工账
+     * kaipiao 2022已开票
+     * all_fhrece 所有已发货
+     * A6 收款单
+     * A7 收款退款单
+     */
+
+    //关联的上的,代表2022年开票但是有延迟发货的情况需要处理
+    spark.sql(
+      s"""
+         |SELECT
+         |  b1.SALENAME		--销售员
+         |	,b1.BUSINESSDATE	--业务日期
+         |	,b1.PROJECTNO	--项目编号
+         |	,b1.PROJECTNAME		--项目名称
+         |	,b1.PERFORMANCEFORM	--履约形式
+         |	,b1.PROJECTSHORTNAME		--项目简称
+         | ,case when (b1.SALETAXAMOUNT-ifnull(b2.SALETAXAMOUNT,0) < 1) and ifnull(b3.SALETAXAMOUNT,0) = 0 then 0
+         | when (b1.SALETAXAMOUNT-ifnull(b2.SALETAXAMOUNT,0) between -1 and 1) and ifnull(b3.SALETAXAMOUNT,0) > 0 then b1.SALETAXAMOUNT-ifnull(b2.SALETAXAMOUNT,0)+ ifnull(b3.SALETAXAMOUNT,0)
+         | when (b1.SALETAXAMOUNT-ifnull(b2.SALETAXAMOUNT,0) < -1) and ifnull(b3.SALETAXAMOUNT,0) > 0 then b1.SALETAXAMOUNT
+         | when (b1.SALETAXAMOUNT-ifnull(b2.SALETAXAMOUNT,0) > 1) then b1.SALETAXAMOUNT-ifnull(b2.SALETAXAMOUNT,0)+ ifnull(b3.SALETAXAMOUNT,0) end as SALETAXAMOUNT
+         |FROM receive b1
+         |JOIN kaipiao b2 ON b1.PROJECTNO = b2.PROJECTNO and b1.SALENAME = b2.SALENAME
+         |LEFT JOIN history_rece b3 ON b1.PROJECTNO = b3.PROJECTNO and b1.SALENAME = b3.SALENAME
+         |""".stripMargin).createOrReplaceTempView("result1")
+
+    //取出2022年本年完成已开票已发货的数据,并取发货日期
+    spark.sql(
+      s"""
+         |select
+         |  *
+         | from
+         |result1
+         |union all
+         |SELECT
+         |  a.SALNAME,
+         |  b.BUSINESSDATE, --小票应收单的业务日期就是发货日期
+         |  a.PROJECTNO,
+         |  a.PROJECTNAME,
+         |  a.PERFORMANCEFORM,
+         |  a.PROJECTSHORTNAME,
+         |  a.RECAMOUNT SALETAXAMOUNT
+         |FROM
+         |history_rece a left join all_fhrece b on a.PROJECTNO = b.PROJECTNO and a.SALENAME = b.SALENAME
+         |WHERE a.PROJECTNO NOT IN (SELECT PROJECTNO FROM result1)
+         |union all
+         |SELECT
+         |  SALENAME		--销售员
+         |	, BUSINESSDATE	--业务日期
+         |	,	PROJECTNO	--项目编号
+         |	, PROJECTNAME		--项目名称
+         |	,	PERFORMANCEFORM	--履约形式
+         |	, PROJECTSHORTNAME		--项目简称
+         | , SALETAXAMOUNT --含税总额
+         |from
+         |  receive
+         |WHERE PROJECTNO NOT IN (SELECT PROJECTNO FROM result1)
+         |""".stripMargin).createOrReplaceTempView("result2")
+
+
+    spark.sql(
+      s"""
+         |SELECT
+         |  A.SALENAME,
+         |	A.BUSINESSDATE,
+         |	A.PROJECTNO,
+         |	A.PROJECTNAME,
+         |	A.PERFORMANCEFORM,
+         |	A.PROJECTSHORTNAME,
+         |	A.SALETAXAMOUNT,
+         |  CAST(COALESCE(A.SALETAXAMOUNT,0) AS DECIMAL(19,2)) - CAST(COALESCE(A6.REAMOUNT,0) AS DECIMAL(19,2)) + CAST(COALESCE(A7.REAMOUNT,0) AS DECIMAL(19,2)) AS RECAMOUNT
+         |FROM
+         |result2 A LEFT JOIN A6 ON A.PROJECTNO = A6.FNUMBER AND A.SALENAME=A6.SALENAME
+         |LEFT JOIN A7 ON A.PROJECTNO = A7.FNUMBER AND A.SALENAME=A7.SALENAME
+         |""".stripMargin).createOrReplaceTempView("res")
+
 
     spark.sql(
       s"""
          |select
          | sum(RECAMOUNT) RECAMOUNT
          |from
-         | result
+         | res
          |""".stripMargin).show(10,false)
-
-
-
-
-
 
   }
 

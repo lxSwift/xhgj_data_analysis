@@ -28,7 +28,7 @@ object PayAmount_Ready {
   }
 
   def runRES(spark: SparkSession) = {
-//    应收单相关信息表更新
+//    应收单相关信息表更新， F_ORDERTYPE为1代表大票
     spark.sql(
       s"""
          |INSERT OVERWRITE TABLE ${TableName.DWS_RECE_PAYAMOUNT}

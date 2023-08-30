@@ -25,13 +25,11 @@ object ceshi {
 
     spark.sql(
       """SELECT DS.FNAME AS SALENAME		--销售员
-        ,MIN(SUBSTRING(OER.FDATE,1,10)) AS BUSINESSDATE	--业务日期
+        ,MAX(SUBSTRING(OER.FDATE,1,10)) AS BUSINESSDATE	--业务日期
         ,DP.fnumber	PROJECTNO	--项目编号
         ,DP.FNAME PROJECTNAME		--项目名称
-        ,CAST(SUM(case when DP.FBEHALFINVOICERATIO is not null and TRIM(DP.FBEHALFINVOICERATIO) != '' and TRIM(DP.FBEHALFINVOICERATIO) != 0 then OERE.FPRICEQTY * OERE.FPRICE/DP.FBEHALFINVOICERATIO*100
-       else OERE.FPRICEQTY * OERE.FPRICE end) AS DECIMAL(19,2)) AS SALEAMOUNT --不含税总额
-       ,CAST(SUM(case when DP.FBEHALFINVOICERATIO is not null and TRIM(DP.FBEHALFINVOICERATIO) != '' and TRIM(DP.FBEHALFINVOICERATIO) != 0 then OERE.FPRICEQTY * OERE.FTAXPRICE/DP.FBEHALFINVOICERATIO*100
-       else OERE.FPRICEQTY * OERE.FTAXPRICE end) AS DECIMAL(19,2)) AS SALETAXAMOUNT --含税总额
+        ,CAST(SUM(OERE.FPRICEQTY * OERE.FPRICE) AS DECIMAL(19,2)) AS SALEAMOUNT --不含税总额
+       ,CAST(SUM(OERE.FPRICEQTY * OERE.FTAXPRICE ) AS DECIMAL(19,2)) AS SALETAXAMOUNT --含税总额
       FROM ods_xhgj.ODS_ERP_RECEIVABLE OER
       LEFT JOIN ods_xhgj.ODS_ERP_RECEIVABLEENTRY OERE ON OER.FID = OERE.FID
       LEFT JOIN dw_xhgj.DIM_CUSTOMER DC ON OER.FCUSTOMERID = DC.FCUSTID
@@ -40,12 +38,12 @@ object ceshi {
       LEFT JOIN ods_xhgj.ODS_ERP_SALORDER OES ON IF(OERE.F_PAEZ_Text='',0,OERE.F_PAEZ_Text) = OES.FBILLNO
       LEFT JOIN dw_xhgj.DIM_SALEMAN DS ON OERE.F_PAEZ_BASE2 = DS.FID
       LEFT JOIN dw_xhgj.DWD_WRITE_COMPANYNAME DWC ON DWC.COMPANYNAME = big.F_PAEZ_TEXT1
-      WHERE ((OER.FSETTLEORGID = '2297171' AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司')) OR (OER.FSETTLEORGID = '910473' AND DP.FNAME not like '%中核集团%')) AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'  AND OER.FDOCUMENTSTATUS = 'C'
+      WHERE ((OER.FSETTLEORGID = '2297156' AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司')) OR (OER.FSETTLEORGID = '910474' AND DP.FNAME not like '%中核集团%')) AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'  AND OER.FDOCUMENTSTATUS = 'C'
       and  substring(OER.FDATE,1,7) < '2023-08'
       GROUP BY DS.FNAME
         ,DP.fnumber
         ,DP.FNAME
-      """).coalesce(1).write.csv("/data/file/yingshoudan.csv")
+      """).coalesce(1).write.csv("/data/file/yingshoudan")
 
 //    spark.sql(
 //      s"""
