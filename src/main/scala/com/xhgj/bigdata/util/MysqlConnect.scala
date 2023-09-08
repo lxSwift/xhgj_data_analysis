@@ -1,9 +1,9 @@
 package com.xhgj.bigdata.util
 
 import org.apache.spark.sql.catalog.Column
-import org.apache.spark.sql.{DataFrame, SaveMode}
+import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 
-import java.sql.Types.{VARCHAR,DECIMAL,INTEGER}
+import java.sql.Types.{DECIMAL, INTEGER, VARCHAR}
 import java.sql.{DriverManager, Statement}
 import java.util.Properties
 
@@ -67,6 +67,22 @@ object MysqlConnect {
     stmt.executeUpdate(sql)
     stmt.close()
     conn.close()
+  }
+
+  /**
+   * 获取mysql指定的表名
+   * @param mysqltable 需要拉取的mysql表名
+   * @param spark
+   * @return
+   */
+  def getMysqlData(mysqltable:String,spark:SparkSession):DataFrame={
+    val df_b: DataFrame = spark.read.format("jdbc")
+      .option("url", url)
+      .option("dbtable", mysqltable)
+      .option("user", user)
+      .option("password", password)
+      .load()
+    df_b
   }
 
 

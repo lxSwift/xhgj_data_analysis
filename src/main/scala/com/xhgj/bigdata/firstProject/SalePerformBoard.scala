@@ -67,7 +67,7 @@ object SalePerformBoard {
         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
         |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON OERE.F_PAEZ_BASE2 = DS.FID
         |LEFT JOIN ${TableName.DWD_WRITE_COMPANYNAME} DWC ON DWC.COMPANYNAME = big.F_PAEZ_TEXT1
-        |WHERE ((OER.FSETTLEORGID = '2297171' AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司')) OR (OER.FSETTLEORGID = '910473' AND DP.FNAME not like '%中核集团%')) AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'  AND OER.FDOCUMENTSTATUS = 'C'
+        |WHERE ((OER.FSETTLEORGID = '2297171' AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司')) OR (OER.FSETTLEORGID = '910473' AND DP.FNAME not like '%中核集团%' and DC.FNAME != '咸亨国际电子商务有限公司')) AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'  AND OER.FDOCUMENTSTATUS = 'C'
         |GROUP BY DS.FNAME
         |	,big.F_PAEZ_TEXT1
         |	,big.F_PAEZ_TEXT2

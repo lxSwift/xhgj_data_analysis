@@ -41,7 +41,7 @@ object PayAmount_Ready {
          |	sal.fnumber fnumber,
          |	a.F_PXDF_TEXT43 FaPiaoNo,
          |	a.F_PXDF_DATE FaPiaoDate,
-         |	a.FALLAMOUNTFOR ALLAMOUNTFOR
+         |	b.FALLAMOUNT ALLAMOUNTFOR
          |from
          |	ODS_XHGJ.ODS_ERP_RECEIVABLE a
          |join ODS_XHGJ.ODS_ERP_RECEIVABLEENTRY b on a.fid=b.fid
