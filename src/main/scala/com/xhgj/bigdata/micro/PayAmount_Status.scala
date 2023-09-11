@@ -1,6 +1,6 @@
 package com.xhgj.bigdata.micro
 
-import com.xhgj.bigdata.util.{Config, TableName}
+import com.xhgj.bigdata.util.{Config, MysqlConnect, TableName}
 import org.apache.spark.sql.SparkSession
 
 import java.sql.Types.VARCHAR
@@ -51,13 +51,12 @@ object PayAmount_Status {
       s"""
          |select
          |  FPROJECTNO,
-         |  PRONAME,
          |  sum(cast(FREALRECAMOUNTFOR as decimal(19,4))) sk_amount
          |from
          |  ${TableName.DWS_RECE_PAYAMOUNTGET}
          |where FPROJECTNO is not null and
          | TRIM(CUSTNAME) NOT IN('咸亨国际科技股份有限公司','北京咸亨国际通用设备有限公司','内蒙古咸亨国际通用设备有限公司','武汉咸亨国际轨道交通设备有限公司','咸亨国际（宁波）安全科技有限公司','咸亨国际轨道交通设备（北京）有限公司','济南英伦电气有限公司','上海咸亨国际通用设备有限公司','安徽咸亨国际通用设备有限公司','聚智国际（杭州）能源设备有限公司','杭州中科天维科技有限公司','中科光绘（上海）科技有限公司','广州咸亨国际通用设备有限公司','广州咸亨电气设备有限公司','江西福瑞尔电气有限公司','江苏咸亨电气设备有限公司','江苏咸亨国际科技发展有限公司','沈阳咸亨科技有限公司','成都咸亨电气有限公司','重庆咸亨通用设备有限公司','郑州咸亨国际通用设备有限公司','西安咸亨国际通用设备有限公司','绍兴咸亨电力设备有限公司','武汉咸亨国际通用设备有限公司','新疆咸亨国际通用设备有限公司','乌鲁木齐万聚高科通用设备有限公司','杭州咸亨国际精测科技有限公司','杭州贝特设备制造有限公司','简固机电设备（上海）有限公司','绍兴简固机械设备制造有限公司','贝特（杭州）工业机械有限公司','杭州咸亨建筑装饰设计工程有限公司','浙江万疆兴驰专用车辆有限公司','浙江贝工设备制造有限公司','咸亨国际（杭州）电气制造有限公司','海宁市欧敬莱电气有限公司','探博士电气技术（杭州）有限公司','浙江咸亨创新产业中心有限公司','杭州艾普莱标识制造有限公司','杭州咸亨国际科研中心有限公司','万聚国际（杭州）供应链有限公司','万聚国际（杭州）工具有限公司','汇聚国际（杭州）高科设备有限公司','杭州咸亨国际应急救援装备有限公司','杭州咸亨国际应急科技有限公司','咸亨国际应急科技研究院（北京）有限公司','咸亨国际电子商务有限公司','咸亨国际（杭州）文化传媒有限公司','杭州市下城区咸亨国际应急装备中心','长沙咸亨赛孚科技有限公司','咸亨国际（杭州）院前救护研究中心有限公司','咸亨国际（杭州）电气科技研究院有限公司','杭州咸亨国际计量中心有限公司','杭州咸亨校准检测技术有限公司','北京咸亨新能源科技有限公司','咸亨国际（杭州）航空技术研究院有限公司','咸亨国际（杭州）航空自动化有限公司','上海戈宝实业有限公司','TI Electric GmbH','武汉咸亨国际能源科技有限公司','武汉咸亨国际轨道科技有限公司','杭州咸亨国际应急发展有限公司','武汉咸亨赛孚实业有限公司','咸亨国际赛孚（杭州）实业有限公司','杭州市咸亨电力职业技能培训学校','武汉咸亨国际电气有限公司','嘉兴咸亨设备制造有限公司','杭州咸亨国际精测科技有限公司（旧）','兰州咸亨国际科技有限公司','XP咸亨国际（杭州）电气科技研究院有限公司','XP咸亨国际（杭州）航空自动化有限公司','XP咸亨国际（杭州）电气制造有限公司','XP探博士电气技术（杭州）有限公司','XP浙江万疆兴驰专用车辆有限公司','XP杭州咸亨国际科研中心有限公司','XP杭州贝特设备制造有限公司','XP贝特（杭州）工业机械有限公司','XP杭州艾普莱标识制造有限公司','XP杭州咸亨国际计量中心有限公司','XP杭州咸亨校准检测技术有限公司','探博士电气科技（杭州）有限公司','安护电力技术（杭州）有限公司','长沙亨特科技有限公司','浙江浙创中和防爆科技有限公司','咸亨电气技术（杭州）有限公司','咸亨国际应急科技研究院（北京）有限公司（代开）','贝特（杭州）工业机械有限公司海宁分公司','DP咸亨国际电子商务有限公司','DP咸亨国际科技股份有限公司')
-         |group by FPROJECTNO,PRONAME
+         |group by FPROJECTNO
          |""".stripMargin).createOrReplaceTempView("sktable")
 
     //找到项目收款最新的业务日期
@@ -79,7 +78,7 @@ object PayAmount_Status {
          |""".stripMargin).createOrReplaceTempView("datenew")
 
     //获取最终状态并保存至mysql
-    val res = spark.sql(
+    spark.sql(
       s"""
          |select
          |  a.prono,
@@ -99,28 +98,41 @@ object PayAmount_Status {
          |  receivable a
          |left join sktable b on a.prono=b.FPROJECTNO
          |left join datenew c on a.prono=c.FPROJECTNO
+         |""".stripMargin).createOrReplaceTempView("res1")
+
+
+    MysqlConnect.getMysqlData("ads_status_payamount",spark).createOrReplaceTempView("mysqldata")
+
+    spark.sql(
+      s"""
+         |INSERT OVERWRITE TABLE ${TableName.DWS_STATUS_PAYAMOUNT}
+         |select
+         |B.prono,
+         |B.proname,
+         |B.paystatus,
+         |B.salename,
+         |B.fnumber_sal,
+         |B.ys_amount,
+         |B.sk_amount,
+         |B.diff_amount,
+         |B.fdate,
+         |case when (B.paystatus != ifnull(A.paystatus, '')) or (cast(B.ys_amount as int) != cast(ifnull(A.ys_amount, 0) as int)) or (cast(B.sk_amount as int) != cast(ifnull(A.sk_amount, '') as int)) then '是'
+         |else '否' end as c_updatestatus
+         |from res1 B left join mysqldata A ON B.prono =A.prono
          |""".stripMargin)
 
+    val res = spark.sql(
+      s"""
+         |SELECT
+         | *
+         |FROM ${TableName.DWS_STATUS_PAYAMOUNT}
+         |""".stripMargin)
     // 定义 MySQL 的连接信息
-    val conf = Config.load("config.properties")
-    val url = conf.getProperty("database.url")
-    val user = conf.getProperty("database.user")
-    val password = conf.getProperty("database.password")
     val table = "ads_status_payamount"
 
 
-    // 定义 JDBC 的相关配置信息
-    val props = new Properties()
-    props.setProperty("user", user)
-    props.setProperty("password", password)
-    props.setProperty("driver", "com.mysql.cj.jdbc.Driver")
+  MysqlConnect.overrideTable(table,res)
 
-    // 将 DataFrame 中的数据保存到 MySQL 中
-    res.write.mode("overwrite")
-      .option("createTableColumnTypes", "prono varchar(255),proname varchar(2000),paystatus varchar(25)") // 明确指定 MySQL 数据库中字段的数据类型
-      .option("batchsize", "10000")
-      .option("truncate", "false")
-      .option("jdbcType", s"prono=${VARCHAR},proname=${VARCHAR},paystatus=${VARCHAR}") // 显式指定 SparkSQL 中的数据类型和 MySQL 中的映射关系
-      .jdbc(url, table, props)
+
   }
 }

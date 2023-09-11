@@ -29,24 +29,29 @@ object PayAmount_Ready {
 
   def runRES(spark: SparkSession) = {
 //    应收单相关信息表更新， F_ORDERTYPE为1代表大票
+    //之所以重复关联大票项目单和销售员表, 主要是存在比如项目编码有值, 项目名称和项目编号是无值的  导致同一个项目编号的结果销售员不一样
     spark.sql(
       s"""
          |INSERT OVERWRITE TABLE ${TableName.DWS_RECE_PAYAMOUNT}
          |select
-         |	b.F_PXDF_TEXT1 PRONAME,
-         |	b.F_PXDF_TEXT PRONO,
+         |	COALESCE(big.fprojectname,big2.fprojectname,'') PRONAME,
+         |	COALESCE(big.fbillno,big2.fbillno,'') PRONO,
          |	cus.Fname CUSTNAME,
          |	cus.fnumber fnumber,
-         |	sal.fname salename,
-         |	sal.fnumber fnumber,
+         |	COALESCE(sal.fname,sal2.fname,'') salename,
+         |	COALESCE(sal.fnumber,sal2.fnumber,'') fnumber,
          |	a.F_PXDF_TEXT43 FaPiaoNo,
          |	a.F_PXDF_DATE FaPiaoDate,
          |	b.FALLAMOUNT ALLAMOUNTFOR
          |from
          |	ODS_XHGJ.ODS_ERP_RECEIVABLE a
          |join ODS_XHGJ.ODS_ERP_RECEIVABLEENTRY b on a.fid=b.fid
+         |left join DW_XHGJ.DIM_PROJECTBASIC pro on b.FPROJECTNO=pro.fid
+         |left join ODS_XHGJ.ODS_ERP_BIGTICKETPROJECT big on pro.fnumber= big.fbillno
+         |left join ODS_XHGJ.ODS_ERP_BIGTICKETPROJECT big2 on b.F_PXDF_TEXT = big2.fbillno
          |left join DW_XHGJ.DIM_CUSTOMER cus on cus.fcustid=a.FCUSTOMERID
-         |left join DW_XHGJ.DIM_SALEMAN sal on sal.fid=a.FSALEERID
+         |left join DW_XHGJ.DIM_SALEMAN sal on sal.fid=big.FSALESMAN
+         |left join DW_XHGJ.DIM_SALEMAN sal2 on sal2.fid=big2.FSALESMAN
          |where a.FDOCUMENTSTATUS='C' AND COALESCE(a.F_ORDERTYPE,'0') = '1'
          |""".stripMargin)
 
