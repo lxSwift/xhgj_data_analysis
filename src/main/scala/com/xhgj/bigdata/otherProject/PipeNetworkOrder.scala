@@ -1,6 +1,6 @@
 package com.xhgj.bigdata.otherProject
 
-import com.xhgj.bigdata.util.{AddressAnalysis, TableName}
+import com.xhgj.bigdata.util.{AddressAnalysis, MysqlConnect, TableName}
 import org.apache.spark.sql.SparkSession
 
 /**
@@ -41,7 +41,7 @@ object PipeNetworkOrder {
          |  ${TableName.DWD_WRITE_PFORDER}
          |""".stripMargin).createOrReplaceTempView("write_pforder")
 
-    //将履约平台的2023之后的数据取出来, 同一个订单类型里面的客户订单号是唯一的,c_state代表的是正常使用的数据
+    //将履约平台的2023之后的数据取出来, 同一个订单类型里面的客户订单号是唯一的,c_state代表的是正常使用的数据,
     spark.sql(
       s"""
          |SELECT
@@ -52,9 +52,9 @@ object PipeNetworkOrder {
          |  address_get(A.c_address) c_receiving_province --收货省区
          |FROM
          |  ${TableName.ODS_OMS_PFORDER} A
-         |LEFT JOIN ${TableName.ODS_OMS_PFRETURNORDER} B ON A.id = B.order_id
-         |LEFT JOIN ${TableName.ODS_OMS_PFRETURNORDERDETAIL} C ON B.id = C.return_order_id
-         |where A.c_state = '1' and A.c_docking_type ='46' and substring(A.c_order_time,1,4) > '2023' and B.c_state = '1' and C.c_state = '1'
+         |LEFT JOIN ${TableName.ODS_OMS_PFRETURNORDER} B ON A.id = B.order_id and B.c_state = '1'
+         |LEFT JOIN ${TableName.ODS_OMS_PFRETURNORDERDETAIL} C ON B.id = C.return_order_id and C.c_state = '1'
+         |where A.c_state = '1' and A.c_docking_type ='46' and substring(A.c_order_time,1,4) >= '2023' and A.c_order_state not in('3','4','6','0')
          |group by A.c_docking_order_no,A.c_title,A.c_order_time,A.c_address,A.c_platform_price
          |""".stripMargin).createOrReplaceTempView("oms_pforder")
     //合并上方两个数据
@@ -71,21 +71,25 @@ object PipeNetworkOrder {
          |  oms_pforder
          |""".stripMargin).createOrReplaceTempView("pforder")
 
+
     //从大票项目单取值
     spark.sql(
       s"""
          |SELECT
-         |big.FCUSTOMERORDERID, --客户订单号
-         |big.fbillno, --项目编码
-         |sum(bige.FPRICETAXAMOUNT) FPRICETAXAMOUNT,  --价税合计(含税)
-         |sum(bige.FAMOUNT) FAMOUNT, --金额(不含税)
-         |DS.FNAME SALENAME --销售员
-         |FROM
-         |${TableName.ODS_ERP_BIGTICKETPROJECT} big
-         |JOIN ${TableName.ODS_ERP_BigTicketProjectEntry} bige on big.fid = bige.fid
-         |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON big.FSALESMAN = DS.FID
-         |WHERE big.fprojectname IN('项目名称——浙20221277-国家管网集团2022年电商平台采购项目','国家管网集团2022年电商平台采购项目')
-         |group by big.fbillno,DS.FNAME,big.FCUSTOMERORDERID
+         |	subquery.CUSTOMERORDERID FCUSTOMERORDERID, --客户订单号
+         |	subquery.fbillno, --项目编码
+         |	sum(bige.FPRICETAXAMOUNT) FPRICETAXAMOUNT,  --价税合计(含税)
+         |	sum(bige.FAMOUNT) FAMOUNT, --金额(不含税)
+         |	DS.FNAME SALENAME --销售员
+         |FROM (
+         |  SELECT CUSTOMERORDERID, fbillno,fid,FSALESMAN
+         |  FROM ${TableName.ODS_ERP_BIGTICKETPROJECT} big
+         |  LATERAL VIEW explode(split(REPLACE(FCUSTOMERORDERID, '\\'', ''),'、')) exploded AS CUSTOMERORDERID
+         |  WHERE big.fprojectname IN('浙20221277-国家管网集团2022年电商平台采购项目','国家管网集团2022年电商平台采购项目')
+         |) subquery
+         |JOIN ${TableName.ODS_ERP_BigTicketProjectEntry} bige on subquery.fid = bige.fid
+         |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON subquery.FSALESMAN = DS.FID
+         |group by subquery.fbillno,DS.FNAME,subquery.CUSTOMERORDERID
          |""".stripMargin).createOrReplaceTempView("bigproject")
 
     //小票组织：咸亨国际科技股份有限公司、武汉咸亨国际能源科技有限公司；单据状态：已审核；
@@ -178,8 +182,8 @@ object PipeNetworkOrder {
          |""".stripMargin)
 
     print("num=========" + result.count())
-    result.coalesce(1).write.csv("/data/file/guanwang")
-
+    val table = "ads_oth_pipenetwork"
+    MysqlConnect.overrideTable(table, result)
 
   }
 
