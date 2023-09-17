@@ -1,6 +1,6 @@
 package com.xhgj.bigdata.otherProject
 
-import com.xhgj.bigdata.util.TableName
+import com.xhgj.bigdata.util.{MysqlConnect, TableName}
 import org.apache.spark.sql.SparkSession
 
 /**
@@ -25,7 +25,7 @@ object EntryStoreToOrderTime {
   }
   def runRES(spark: SparkSession): Unit = {
     // 采购入库单数据拉取
-    spark.sql(
+    val result = spark.sql(
       s"""
          |SELECT
          |  INS.FBILLNO c_entrywarehous_code,--单据编号
@@ -53,7 +53,12 @@ object EntryStoreToOrderTime {
          |LEFT JOIN ${TableName.DIM_USER} USER ON INS.FCREATORID = USER.fuserid
          |LEFT JOIN ${TableName.ODS_ERP_POORDER} OEP ON INSE.FPOORDERNO = OEP.fbillno
          |WHERE org.fname in ('万聚国际（杭州）供应链有限公司','杭州咸亨国际应急救援装备有限公司') and sto.fname IN('直销库','应急直销库') and INS.FDOCUMENTSTATUS = 'C'
-         |""".stripMargin).show(10,false)
+         |""".stripMargin)
+
+    println("num============"+result.count())
+
+    val table = "ads_oth_entrystoretoordertime"
+    MysqlConnect.overrideTable(table, result)
 
   }
 

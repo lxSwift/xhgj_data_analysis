@@ -45,7 +45,8 @@ object PipeNetworkOrder {
     spark.sql(
       s"""
          |SELECT
-         |  A.c_order_time, --下单时间
+         |  case when substring(A.c_docking_order_no,1,1) = '2' then A.c_order_time
+         |  else IF(A.c_examine_time is not null and substring(A.c_examine_time,1,2) != '19',A.c_examine_time,A.c_order_time) end as c_order_time, --下单时间
          |  A.c_docking_order_no c_order_id, --客户订单号
          |  cast(A.c_platform_price as decimal(19,2)) - sum(cast(COALESCE(c_return_num,0) as decimal(19,2)) * cast(COALESCE(c_xs_price,0) as decimal(19,2))) c_platform_price, --平台总价
          |  A.c_title, --发票抬头
@@ -55,7 +56,7 @@ object PipeNetworkOrder {
          |LEFT JOIN ${TableName.ODS_OMS_PFRETURNORDER} B ON A.id = B.order_id and B.c_state = '1'
          |LEFT JOIN ${TableName.ODS_OMS_PFRETURNORDERDETAIL} C ON B.id = C.return_order_id and C.c_state = '1'
          |where A.c_state = '1' and A.c_docking_type ='46' and substring(A.c_order_time,1,4) >= '2023' and A.c_order_state not in('3','4','6','0')
-         |group by A.c_docking_order_no,A.c_title,A.c_order_time,A.c_address,A.c_platform_price
+         |group by A.c_docking_order_no,A.c_title,A.c_order_time,A.c_address,A.c_platform_price,A.c_examine_time
          |""".stripMargin).createOrReplaceTempView("oms_pforder")
     //合并上方两个数据
     spark.sql(
@@ -71,6 +72,7 @@ object PipeNetworkOrder {
          |  oms_pforder
          |""".stripMargin).createOrReplaceTempView("pforder")
 
+    MysqlConnect.getMysqlData("write_pipenetwork_ordermapping",spark).createOrReplaceTempView("mysqldata")
 
     //从大票项目单取值
     spark.sql(
@@ -90,7 +92,21 @@ object PipeNetworkOrder {
          |JOIN ${TableName.ODS_ERP_BigTicketProjectEntry} bige on subquery.fid = bige.fid
          |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON subquery.FSALESMAN = DS.FID
          |group by subquery.fbillno,DS.FNAME,subquery.CUSTOMERORDERID
+         |""".stripMargin).createOrReplaceTempView("bigproject2")
+
+    spark.sql(
+      s"""
+         |SELECT
+         |  coalesce(my.c_customer_order,big.FCUSTOMERORDERID,'') FCUSTOMERORDERID, --客户订单号
+         |  big.fbillno, --项目编码
+         |	big.FPRICETAXAMOUNT,  --价税合计(含税)
+         |	big.FAMOUNT, --金额(不含税)
+         |	big.SALENAME --销售员
+         |FROM
+         |bigproject2 big
+         |left join mysqldata my on big.fbillno = my.c_project_order
          |""".stripMargin).createOrReplaceTempView("bigproject")
+
 
     //小票组织：咸亨国际科技股份有限公司、武汉咸亨国际能源科技有限公司；单据状态：已审核；
     // 项目编号与大票项目单信息中的项目编号相匹配的单据之汇总金额；金额应当除以代开比例，代开比例为空的按100计
