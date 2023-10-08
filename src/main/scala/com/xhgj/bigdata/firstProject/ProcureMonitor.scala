@@ -786,6 +786,8 @@ object ProcureMonitor {
   /**
    * 采购过程--退货单
    * @param spark
+   * FISGENFORIOS跨组织结算法人标识 0代表是 1代表否    是即是客户直接退给万聚  然后还会出现一笔系统自动生成的 1 这些数据，
+   * 和0 其实是一样的金额  知识代表这客户退给销售公司再退给万聚
    */
   def RerurnStock(spark: SparkSession): Unit = {
     val res = spark.sql(

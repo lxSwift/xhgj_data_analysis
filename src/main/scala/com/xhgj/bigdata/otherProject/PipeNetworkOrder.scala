@@ -41,7 +41,8 @@ object PipeNetworkOrder {
          |  ${TableName.DWD_WRITE_PFORDER}
          |""".stripMargin).createOrReplaceTempView("write_pforder")
 
-    //将履约平台的2023之后的数据取出来, 同一个订单类型里面的客户订单号是唯一的,c_state代表的是正常使用的数据,
+    //将履约平台的2023之后的数据取出来, 同一个订单类型里面的客户订单号是唯一的,c_state代表的是正常使用的数据, 46代表是管网的数据
+    //订单状态待取消'3',取消'4',预占'6',全部订单'0'
     spark.sql(
       s"""
          |SELECT
@@ -80,18 +81,19 @@ object PipeNetworkOrder {
          |SELECT
          |	subquery.CUSTOMERORDERID FCUSTOMERORDERID, --客户订单号
          |	subquery.fbillno, --项目编码
+         |  subquery.FCREATEDATE CREATEDATE, --创建日期
          |	sum(bige.FPRICETAXAMOUNT) FPRICETAXAMOUNT,  --价税合计(含税)
          |	sum(bige.FAMOUNT) FAMOUNT, --金额(不含税)
          |	DS.FNAME SALENAME --销售员
          |FROM (
-         |  SELECT CUSTOMERORDERID, fbillno,fid,FSALESMAN
+         |  SELECT CUSTOMERORDERID, fbillno,fid,FSALESMAN,FCREATEDATE
          |  FROM ${TableName.ODS_ERP_BIGTICKETPROJECT} big
-         |  LATERAL VIEW explode(split(REPLACE(FCUSTOMERORDERID, '\\'', ''),'、')) exploded AS CUSTOMERORDERID
+         |  LATERAL VIEW explode(split(REPLACE(coalesce(FCUSTOMERORDERID,''), '\\'', ''),'、')) exploded AS CUSTOMERORDERID
          |  WHERE big.fprojectname IN('浙20221277-国家管网集团2022年电商平台采购项目','国家管网集团2022年电商平台采购项目')
          |) subquery
          |JOIN ${TableName.ODS_ERP_BigTicketProjectEntry} bige on subquery.fid = bige.fid
          |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON subquery.FSALESMAN = DS.FID
-         |group by subquery.fbillno,DS.FNAME,subquery.CUSTOMERORDERID
+         |group by subquery.fbillno,DS.FNAME,subquery.CUSTOMERORDERID,subquery.FCREATEDATE
          |""".stripMargin).createOrReplaceTempView("bigproject2")
 
     spark.sql(
@@ -101,6 +103,7 @@ object PipeNetworkOrder {
          |  big.fbillno, --项目编码
          |	big.FPRICETAXAMOUNT,  --价税合计(含税)
          |	big.FAMOUNT, --金额(不含税)
+         |  big.CREATEDATE, --创建日期
          |	big.SALENAME --销售员
          |FROM
          |bigproject2 big
@@ -182,6 +185,7 @@ object PipeNetworkOrder {
          |  B.FPRICETAXAMOUNT c_fpricetax_amount,
          |  B.FAMOUNT c_FAMOUNT,
          |  B.SALENAME c_SALENAME,
+         |  B.CREATEDATE c_CREATEDATE,
          |  C.SALETAXAMOUNT c_saletaxamount,
          |  C.SALEAMOUNT c_saleamount,
          |  C.FCOSTAMTSUM c_fcostamtsum,

@@ -35,7 +35,7 @@ object SaleOrder {
     val res = spark.sql(
       s"""
          |select cast (oes.fcreatedate as varchar(32)) as createdate,
-         | cast(dp.fname as varchar(1000)) as projectname,
+         | cast(big.fprojectname as varchar(1000)) as projectname,
          | cast(dp.fnumber as varchar(255)) as projectno ,
          | cast(dp.fcustomerorderid as varchar(128)) as customerorderid,
          | cast(big.F_PAEZ_TEXT1 as varchar(255)) as salescompany,
@@ -81,7 +81,7 @@ object SaleOrder {
          | org.fname SALEORGNAME
          |from ${TableName.DWD_SAL_ORDER} oes
          |left join ${TableName.DIM_PROJECTBASIC} dp on oes.fprojectbasic  = dp.fid
-         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on dp.fnumber = BIG.fbillno
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on dp.fnumber = big.fbillno
          |left join ${TableName.DIM_ORGANIZATIONS} org on oes.FSALEORGID = org.forgid
          |left join ${TableName.DIM_USER} du on oes.FCREATORID = du.fuserid
          |left join ${TableName.DIM_SALEMAN} ds on oes.fsalerid = ds.fid
