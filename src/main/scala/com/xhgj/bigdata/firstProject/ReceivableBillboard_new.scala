@@ -75,12 +75,12 @@ object ReceivableBillboard_new {
 
 
     /**
-     * 获取2022-12-31日期以前的已开票应收款余额
+     * 获取手工的2022-12-31日期以前的已开票应收款余额
      */
     spark.sql(
       s"""
          |SELECT
-         |  MAX(from_unixtime(unix_timestamp(OERE.KPDATE, 'yyyy/M/dd'),'yyyy-MM-dd')) FDATE,
+         |  MAX(from_unixtime(unix_timestamp(OERE.KPDATE, 'yyyy/M/d'),'yyyy-MM-dd')) FDATE,
          |  SUM(OERE.RECAMOUNT) SALETAXAMOUNT,
          |  OERE.PROJECTNAME PROJECTNO,
          |  DP.FNAME PROJECTNAME,
@@ -188,126 +188,6 @@ object ReceivableBillboard_new {
          |GROUP BY DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME
          |""".stripMargin).createOrReplaceTempView("A7")
 
-
-    //历史所有已开票数据
-    val result2 = spark.sql(
-      s"""
-         |SELECT DS.FNAME SALENAME
-         |,MIN(SUBSTRING(OER.f_pxdf_date,1,10)) AS BUSINESSDATE	--业务日期
-         |	,DP.fnumber	PROJECTNO	--项目编号
-         | ,DP.fname PROJECTNAME
-         | ,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
-         |		ELSE '其他' END AS PROJECTSHORTNAME		--项目简称
-         | ,CAST(SUM( OERE.FPRICEQTY * OERE.FTAXPRICE ) AS DECIMAL(19,2)) AS SALETAXAMOUNT --含税总额
-         |FROM ${TableName.ODS_ERP_RECEIVABLE} OER
-         |LEFT JOIN ${TableName.ODS_ERP_RECEIVABLEENTRY} OERE ON OER.FID = OERE.FID
-         |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FCUSTOMERID = DC.FCUSTID
-         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.fid
-         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
-         |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON big.FSALESMAN = DS.FID
-         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
-         |WHERE ((OER.FSETTLEORGID = '2297156' AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司')) OR (OER.FSETTLEORGID = '910474' AND DP.FNAME not like '%中核集团%' and DC.FNAME != '咸亨国际电子商务有限公司')) AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'  AND OER.FDOCUMENTSTATUS = 'C'
-         |GROUP BY DS.FNAME,DP.fnumber,DP.fname,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
-         |		ELSE '其他' END
-         |""".stripMargin)
-    /**
-     * receive 2023年发货
-     * history_rece 手工账
-     * kaipiao 2022已开票
-     * all_fhrece 所有已发货
-     * A6 收款单
-     * A7 收款退款单
-     */
-
-    //关联的上的,代表2022年开票但是有延迟发货的情况需要处理
-    spark.sql(
-      s"""
-         |SELECT
-         |  b1.BUSINESSDATE	--业务日期
-         |	,b1.PROJECTNO	--项目编号
-         |	,b1.PROJECTNAME		--项目名称
-         |	,b1.PERFORMANCEFORM	--履约形式
-         |	,b1.PROJECTSHORTNAME		--项目简称
-         | ,case when (b1.SALETAXAMOUNT-ifnull(b2.SALETAXAMOUNT,0) < 1) and ifnull(b3.SALETAXAMOUNT,0) = 0 then 0
-         | when (b1.SALETAXAMOUNT-ifnull(b2.SALETAXAMOUNT,0) between -1 and 1) and ifnull(b3.SALETAXAMOUNT,0) > 0 then b1.SALETAXAMOUNT-ifnull(b2.SALETAXAMOUNT,0)+ ifnull(b3.SALETAXAMOUNT,0)
-         | when (b1.SALETAXAMOUNT-ifnull(b2.SALETAXAMOUNT,0) < -1) and ifnull(b3.SALETAXAMOUNT,0) > 0 then b1.SALETAXAMOUNT
-         | when (b1.SALETAXAMOUNT-ifnull(b2.SALETAXAMOUNT,0) > 1) then b1.SALETAXAMOUNT-ifnull(b2.SALETAXAMOUNT,0)+ ifnull(b3.SALETAXAMOUNT,0) end as SALETAXAMOUNT
-         |FROM receive b1
-         |JOIN kaipiao b2 ON b1.PROJECTNO = b2.PROJECTNO
-         |LEFT JOIN history_rece b3 ON b1.PROJECTNO = b3.PROJECTNO
-         |""".stripMargin).createOrReplaceTempView("result1")
-
-    //取出2022年本年完成已开票已发货的数据,并取发货日期
-    spark.sql(
-      s"""
-         |select
-         |  *
-         | from
-         |result1
-         |union all
-         |SELECT
-         |  BUSINESSDATE	--业务日期
-         |	,	PROJECTNO	--项目编号
-         |	, PROJECTNAME		--项目名称
-         |	,	PERFORMANCEFORM	--履约形式
-         |	, PROJECTSHORTNAME		--项目简称
-         | , SALETAXAMOUNT --含税总额
-         |from
-         |  receive
-         |WHERE PROJECTNO NOT IN (SELECT PROJECTNO FROM result1)
-         |""".stripMargin).createOrReplaceTempView("res2")
-
-    result2.createOrReplaceTempView("ykpdata")
-
-    val result = spark.sql(
-      s"""
-         |SELECT
-         |  DS.FNAME SALENAME,
-         |	A.BUSINESSDATE,
-         |	A.PROJECTNO,
-         |	A.PROJECTNAME,
-         |	A.PERFORMANCEFORM,
-         |	A.PROJECTSHORTNAME,
-         |	A.SALETAXAMOUNT,
-         |  A6.REAMOUNT PAYBACKAMOUNT,
-         |  A7.REAMOUNT REFAMOUNT,
-         |  if(CAST(COALESCE(A.SALETAXAMOUNT,0) AS DECIMAL(19,2)) - CAST(COALESCE(A6.REAMOUNT,0) AS DECIMAL(19,2)) + CAST(COALESCE(A7.REAMOUNT,0) AS DECIMAL(19,2)) < 0, 0,CAST(COALESCE(A.SALETAXAMOUNT,0) AS DECIMAL(19,2)) - CAST(COALESCE(A6.REAMOUNT,0) AS DECIMAL(19,2)) + CAST(COALESCE(A7.REAMOUNT,0) AS DECIMAL(19,2))) AS RECAMOUNT,
-         |  DATEDIFF(FROM_UNIXTIME(UNIX_TIMESTAMP(),'yyyy-MM-dd'),DATE_FORMAT(A.BUSINESSDATE,'yyyy-MM-dd')) AGING,
-         |  SUBSTRING(DATE_ADD(CURRENT_TIMESTAMP() ,-1),1,7) AS UPDATEMONTH,
-         |  CAST(COALESCE(A6.REAMOUNT,0) AS DECIMAL(19,2)) - CAST(COALESCE(A7.REAMOUNT,0) AS DECIMAL(19,2)) AS THEYEARAMOUNT,
-         |  SUBSTRING(KP.BUSINESSDATE,1,10) KPDATE,
-         |  DATEDIFF(FROM_UNIXTIME(UNIX_TIMESTAMP(),'yyyy-MM-dd'),DATE_FORMAT(SUBSTRING(KP.BUSINESSDATE,1,10),'yyyy-MM-dd')) YKPAGING,
-         |  case when COALESCE(KP.SALETAXAMOUNT,0) = 0 then 0
-         |  else if(CAST(COALESCE(A.SALETAXAMOUNT,0) AS DECIMAL(19,2)) - CAST(COALESCE(A6.REAMOUNT,0) AS DECIMAL(19,2)) + CAST(COALESCE(A7.REAMOUNT,0) AS DECIMAL(19,2)) < 0, 0,CAST(COALESCE(A.SALETAXAMOUNT,0) AS DECIMAL(19,2)) - CAST(COALESCE(A6.REAMOUNT,0) AS DECIMAL(19,2)) + CAST(COALESCE(A7.REAMOUNT,0) AS DECIMAL(19,2)))
-         |  end as YKPWHKAMOUNT
-         |FROM
-         |res2 A LEFT JOIN A6 ON A.PROJECTNO = A6.FNUMBER
-         |LEFT JOIN A7 ON A.PROJECTNO = A7.FNUMBER
-         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on A.PROJECTNO= big.fbillno
-         |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON big.FSALESMAN = DS.FID
-         |left join ykpdata KP ON A.PROJECTNO = KP.PROJECTNO
-         |""".stripMargin)
-    val table = "ads_fin_receivableboardnew"
-
-    MysqlConnect.overrideTable(table, result)
-
-    //历史所有已开票数据
-
-    val table2 = "ads_fin_ykpalldata"
-    MysqlConnect.overrideTable(table2, result2)
-
-    //已发货口径的数据，所有日期的数据
-    val result3 =spark.sql(
-      s"""
-         |select
-         |  *
-         |from
-         |receive
-         |""".stripMargin)
-    val table3 = "ads_fin_yfhalldata"
-    MysqlConnect.overrideTable(table3, result3)
-
-
     //取当年收款以及近三月收款所需数据
     //取当年收款单收款 2297156 DP咸亨国际电子商务有限公司    910474 DP咸亨国际科技股份有限公司
     spark.sql(
@@ -364,6 +244,156 @@ object ReceivableBillboard_new {
          |	AND DWP.PROJECTSHORTNAME != '中核集团' AND SUBSTRING(OER.FCREATEDATE,1,4) >= '2023'
          |GROUP BY DS.FNAME,DP.FNUMBER,DP.FNAME,DWP.PROJECTSHORTNAME,SUBSTRING(OER.FCREATEDATE,1,10)
          |""".stripMargin).createOrReplaceTempView("A9")
+
+
+    //历史所有已开票数据
+    val result2 = spark.sql(
+      s"""
+         |SELECT DS.FNAME SALENAME
+         |,MIN(SUBSTRING(OER.f_pxdf_date,1,10)) AS BUSINESSDATE	--业务日期
+         |	,DP.fnumber	PROJECTNO	--项目编号
+         | ,DP.fname PROJECTNAME
+         | ,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
+         |		ELSE '其他' END AS PROJECTSHORTNAME		--项目简称
+         | ,CAST(SUM( OERE.FPRICEQTY * OERE.FTAXPRICE ) AS DECIMAL(19,2)) AS SALETAXAMOUNT --含税总额
+         |FROM ${TableName.ODS_ERP_RECEIVABLE} OER
+         |LEFT JOIN ${TableName.ODS_ERP_RECEIVABLEENTRY} OERE ON OER.FID = OERE.FID
+         |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FCUSTOMERID = DC.FCUSTID
+         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.fid
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
+         |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON big.FSALESMAN = DS.FID
+         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
+         |WHERE ((OER.FSETTLEORGID = '2297156' AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司')) OR (OER.FSETTLEORGID = '910474' AND DP.FNAME not like '%中核集团%' and DC.FNAME != '咸亨国际电子商务有限公司')) AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'  AND OER.FDOCUMENTSTATUS = 'C'
+         |GROUP BY DS.FNAME,DP.fnumber,DP.fname,CASE WHEN DWP.PROJECTSHORTNAME IS NOT NULL THEN DWP.PROJECTSHORTNAME
+         |		ELSE '其他' END
+         |""".stripMargin)
+
+    //2023年以后的已开票数据
+    spark.sql(
+      s"""
+         |SELECT MIN(SUBSTRING(OER.f_pxdf_date,1,10)) AS BUSINESSDATE	--业务日期
+         |	,DP.fnumber	PROJECTNO	--项目编号
+         | ,CAST(SUM( OERE.FPRICEQTY * OERE.FTAXPRICE ) AS DECIMAL(19,2)) AS SALETAXAMOUNT --含税总额
+         |FROM ${TableName.ODS_ERP_RECEIVABLE} OER
+         |LEFT JOIN ${TableName.ODS_ERP_RECEIVABLEENTRY} OERE ON OER.FID = OERE.FID
+         |LEFT JOIN ${TableName.DIM_CUSTOMER} DC ON OER.FCUSTOMERID = DC.FCUSTID
+         |LEFT JOIN ${TableName.DIM_PROJECTBASIC} DP ON OERE.FPROJECTNO = DP.fid
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on DP.fnumber= big.fbillno
+         |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON big.FSALESMAN = DS.FID
+         |LEFT JOIN ${TableName.DWD_WRITE_PROJECTNAME} DWP ON DP.FNAME = DWP.PROJECTNAME
+         |WHERE ((OER.FSETTLEORGID = '2297156' AND DC.FNAME not in ('咸亨国际科技股份有限公司','DP咸亨国际科技股份有限公司')) OR (OER.FSETTLEORGID = '910474' AND DP.FNAME not like '%中核集团%' and DC.FNAME != '咸亨国际电子商务有限公司')) AND big.F_PAEZ_TEXT1 = '咸亨国际电子商务有限公司'  AND OER.FDOCUMENTSTATUS = 'C'
+         |and SUBSTRING(OER.f_pxdf_date,1,4) >= '2023'
+         |GROUP BY DP.fnumber
+         |""".stripMargin).createOrReplaceTempView("ykp_new")
+
+    //将23年以前以及23年之后的已开票应收金额集合起来
+
+    spark.sql(
+      s"""
+         |select
+         |  COALESCE(hr.PROJECTNO,yn.PROJECTNO,'') PROJECTNO,
+         |  COALESCE(hr.SALETAXAMOUNT,0) + COALESCE(yn.SALETAXAMOUNT,0) SALETAXAMOUNT,
+         |  COALESCE(hr.FDATE,yn.BUSINESSDATE,'') BUSINESSDATE
+         |from history_rece hr full join ykp_new yn on hr.PROJECTNO = yn.PROJECTNO
+         |""".stripMargin).createOrReplaceTempView("ykpdata")
+
+
+    /**
+     * receive 2023年发货
+     * history_rece 手工账
+     * kaipiao 2022已开票
+     * all_fhrece 所有已发货
+     * A6 收款单
+     * A7 收款退款单
+     */
+
+    //关联的上的,代表2022年开票但是有延迟发货的情况需要处理
+    spark.sql(
+      s"""
+         |SELECT
+         |  b1.BUSINESSDATE	--业务日期
+         |	,b1.PROJECTNO	--项目编号
+         |	,b1.PROJECTNAME		--项目名称
+         |	,b1.PERFORMANCEFORM	--履约形式
+         |	,b1.PROJECTSHORTNAME		--项目简称
+         | ,case when (b1.SALETAXAMOUNT-ifnull(b2.SALETAXAMOUNT,0) < 1) and ifnull(b3.SALETAXAMOUNT,0) = 0 then 0
+         | when (b1.SALETAXAMOUNT-ifnull(b2.SALETAXAMOUNT,0) between -1 and 1) and ifnull(b3.SALETAXAMOUNT,0) > 0 then b1.SALETAXAMOUNT-ifnull(b2.SALETAXAMOUNT,0)+ ifnull(b3.SALETAXAMOUNT,0)
+         | when (b1.SALETAXAMOUNT-ifnull(b2.SALETAXAMOUNT,0) < -1) and ifnull(b3.SALETAXAMOUNT,0) > 0 then b1.SALETAXAMOUNT
+         | when (b1.SALETAXAMOUNT-ifnull(b2.SALETAXAMOUNT,0) > 1) then b1.SALETAXAMOUNT-ifnull(b2.SALETAXAMOUNT,0)+ ifnull(b3.SALETAXAMOUNT,0) end as SALETAXAMOUNT
+         |FROM receive b1
+         |JOIN kaipiao b2 ON b1.PROJECTNO = b2.PROJECTNO
+         |LEFT JOIN history_rece b3 ON b1.PROJECTNO = b3.PROJECTNO
+         |""".stripMargin).createOrReplaceTempView("result1")
+
+    //取出2022年本年完成已开票已发货的数据,并取发货日期
+    spark.sql(
+      s"""
+         |select
+         |  *
+         | from
+         |result1
+         |union all
+         |SELECT
+         |  BUSINESSDATE	--业务日期
+         |	,	PROJECTNO	--项目编号
+         |	, PROJECTNAME		--项目名称
+         |	,	PERFORMANCEFORM	--履约形式
+         |	, PROJECTSHORTNAME		--项目简称
+         | , SALETAXAMOUNT --含税总额
+         |from
+         |  receive
+         |WHERE PROJECTNO NOT IN (SELECT PROJECTNO FROM result1)
+         |""".stripMargin).createOrReplaceTempView("res2")
+
+
+    val result = spark.sql(
+      s"""
+         |SELECT
+         |  DS.FNAME SALENAME,
+         |	A.BUSINESSDATE,
+         |	A.PROJECTNO,
+         |	A.PROJECTNAME,
+         |	A.PERFORMANCEFORM,
+         |	A.PROJECTSHORTNAME,
+         |	A.SALETAXAMOUNT,
+         |  A6.REAMOUNT PAYBACKAMOUNT,
+         |  A7.REAMOUNT REFAMOUNT,
+         |  if(CAST(COALESCE(A.SALETAXAMOUNT,0) AS DECIMAL(19,2)) - CAST(COALESCE(A6.REAMOUNT,0) AS DECIMAL(19,2)) + CAST(COALESCE(A7.REAMOUNT,0) AS DECIMAL(19,2)) < 0, 0,CAST(COALESCE(A.SALETAXAMOUNT,0) AS DECIMAL(19,2)) - CAST(COALESCE(A6.REAMOUNT,0) AS DECIMAL(19,2)) + CAST(COALESCE(A7.REAMOUNT,0) AS DECIMAL(19,2))) AS RECAMOUNT,
+         |  DATEDIFF(FROM_UNIXTIME(UNIX_TIMESTAMP(),'yyyy-MM-dd'),DATE_FORMAT(A.BUSINESSDATE,'yyyy-MM-dd')) AGING,
+         |  SUBSTRING(DATE_ADD(CURRENT_TIMESTAMP() ,-1),1,7) AS UPDATEMONTH,
+         |  CAST(COALESCE(A6.REAMOUNT,0) AS DECIMAL(19,2)) - CAST(COALESCE(A7.REAMOUNT,0) AS DECIMAL(19,2)) AS THEYEARAMOUNT,
+         |  SUBSTRING(KP.BUSINESSDATE,1,10) KPDATE,
+         |  DATEDIFF(FROM_UNIXTIME(UNIX_TIMESTAMP(),'yyyy-MM-dd'),DATE_FORMAT(SUBSTRING(KP.BUSINESSDATE,1,10),'yyyy-MM-dd')) YKPAGING,
+         |  case when COALESCE(KP.SALETAXAMOUNT,0) = 0 then 0
+         |  else if(CAST(COALESCE(KP.SALETAXAMOUNT,0) AS DECIMAL(19,2)) - CAST(COALESCE(A6.REAMOUNT,0) AS DECIMAL(19,2)) + CAST(COALESCE(A7.REAMOUNT,0) AS DECIMAL(19,2)) < 0, 0,CAST(COALESCE(KP.SALETAXAMOUNT,0) AS DECIMAL(19,2)) - CAST(COALESCE(A6.REAMOUNT,0) AS DECIMAL(19,2)) + CAST(COALESCE(A7.REAMOUNT,0) AS DECIMAL(19,2)))
+         |  end as YKPWHKAMOUNT
+         |FROM
+         |res2 A LEFT JOIN A6 ON A.PROJECTNO = A6.FNUMBER
+         |LEFT JOIN A7 ON A.PROJECTNO = A7.FNUMBER
+         |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on A.PROJECTNO= big.fbillno
+         |LEFT JOIN ${TableName.DIM_SALEMAN} DS ON big.FSALESMAN = DS.FID
+         |left join ykpdata KP ON A.PROJECTNO = KP.PROJECTNO
+         |""".stripMargin)
+    val table = "ads_fin_receivableboardnew"
+
+    MysqlConnect.overrideTable(table, result)
+
+    //历史所有已开票数据
+
+    val table2 = "ads_fin_ykpalldata"
+    MysqlConnect.overrideTable(table2, result2)
+
+    //已发货口径的数据，所有日期的数据
+    val result3 =spark.sql(
+      s"""
+         |select
+         |  *
+         |from
+         |receive
+         |""".stripMargin)
+    val table3 = "ads_fin_yfhalldata"
+    MysqlConnect.overrideTable(table3, result3)
+
 
     val result4 = spark.sql(
       s"""

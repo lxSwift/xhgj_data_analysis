@@ -56,7 +56,7 @@ object PipeNetworkOrder {
          |  ${TableName.ODS_OMS_PFORDER} A
          |LEFT JOIN ${TableName.ODS_OMS_PFRETURNORDER} B ON A.id = B.order_id and B.c_state = '1'
          |LEFT JOIN ${TableName.ODS_OMS_PFRETURNORDERDETAIL} C ON B.id = C.return_order_id and C.c_state = '1'
-         |where A.c_state = '1' and A.c_docking_type ='46' and substring(A.c_order_time,1,4) >= '2023' and A.c_order_state not in('3','4','6','0')
+         |where A.c_state = '1' and A.c_docking_type IN ('46','ZQ001') and substring(A.c_order_time,1,4) >= '2023' and A.c_order_state not in('3','4','6','0')
          |group by A.c_docking_order_no,A.c_title,A.c_order_time,A.c_address,A.c_platform_price,A.c_examine_time
          |""".stripMargin).createOrReplaceTempView("oms_pforder")
     //合并上方两个数据
