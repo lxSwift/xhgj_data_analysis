@@ -33,15 +33,16 @@ object ReturnsBasedOnSalesOrders {
     spark.sql(
       s"""
          |SELECT
-         |  big.F_PAEZ_TEXT1,--销售员所属公司
+         |  coalesce(big.F_PAEZ_TEXT1,DSO.F_paez_Text13,'') F_PAEZ_TEXT1,--销售员所属公司
          |  DSO.fbillno
          |FROM
          |${TableName.DWD_SAL_ORDER} DSO
          |left join ${TableName.DIM_PROJECTBASIC} dp on DSO.fprojectbasic  = dp.fid
          |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on dp.fnumber = BIG.fbillno
-         |GROUP BY  DSO.fbillno,big.F_PAEZ_TEXT1
+         |GROUP BY  DSO.fbillno,coalesce(big.F_PAEZ_TEXT1,DSO.F_paez_Text13,'')
          |""".stripMargin).createOrReplaceTempView("salorder")
 
+    //FISOVERLEGALORG组织间结算跨法人标识 为1 代表是   0代表否
     spark.sql(
       s"""
          |SELECT
@@ -58,16 +59,16 @@ object ReturnsBasedOnSalesOrders {
          |  DSO.F_PAEZ_TEXT1 c_saler_company --销售员所属公司
          |from
          |  ${TableName.ODS_ERP_RETURNSTOCK} OER
-         |LEFT JOIN ${TableName.ODS_ERP_RETURNSTOCKFIN} OERF ON OER.FID = OERF.FID
-         |LEFT JOIN ${TableName.ODS_ERP_RETURNSTOCKENTRY} OERE ON OER.FID  = OERE.FID and OERE.F_PAEZ_TEXT2 NOT LIKE '%流程%' and OERE.F_PAEZ_TEXT2 NOT LIKE '%调整%'
-         |LEFT JOIN ${TableName.DIM_STOCK} DS ON OER.F_PAEZ_BASE3 = DS.FSTOCKID
+         |LEFT JOIN ${TableName.ODS_ERP_RETURNSTOCKENTRY} OERE ON OER.FID  = OERE.FID
+         |LEFT JOIN ${TableName.ODS_ERP_RETURNSTOCKENTRY_F} OERF ON OERE.FENTRYID = OERF.FENTRYID
+         |LEFT JOIN ${TableName.DIM_STOCK} DS ON OERE.FSTOCKID = DS.FSTOCKID
          |LEFT JOIN salorder DSO ON OERE.F_PAEZ_TEXT = DSO.fbillno
          |LEFT JOIN ${TableName.DIM_MATERIAL} MAT ON OERE.FMATERIALID = MAT.FMATERIALID
          |LEFT JOIN ${TableName.DIM_LOTMASTER} LOT ON OERE.FLOT = LOT.flotid
          |LEFT JOIN ${TableName.DIM_BUYER} BUY ON OERE.F_PAEZ_BASE = BUY.fid
          |LEFT JOIN ${TableName.DIM_DEPARTMENT} ORG ON OERE.F_PXDF_Base1 = ORG.fdeptid
          |LEFT JOIN ${TableName.DIM_SALEMAN} DSA ON OER.FSALESMANID = DSA.FID
-         |WHERE OER.FSTOCKORGID IN ('1','481351') AND OER.FDOCUMENTSTATUS = 'C' AND OERF.FISGENFORIOS = '0'
+         |WHERE OER.FSTOCKORGID IN ('1','481351') AND OER.FDOCUMENTSTATUS = 'C' AND OERF.FISOVERLEGALORG = '1'
          | AND DS.fname IN ('海宁1号库','应急海宁1号库','应急海宁2号库','嘉峪关分仓','惠州分仓')
          |""".stripMargin).createOrReplaceTempView("RETURN")
 
@@ -144,7 +145,7 @@ object ReturnsBasedOnSalesOrders {
          |""".stripMargin).createOrReplaceTempView("res1")
 
 
-    //ERP-采购退货单
+    //ERP-采购退货单  退料组织和需求组织不一致的是内部交易单据 需要排除掉
     spark.sql(
       s"""
          |SELECT
@@ -159,11 +160,11 @@ object ReturnsBasedOnSalesOrders {
          |LEFT JOIN ${TableName.DIM_MATERIAL} MAT ON MRBE.FMATERIALID = MAT.FMATERIALID
          |LEFT JOIN ${TableName.DIM_LOTMASTER} dl ON MRBE.FLOT = dl.FLOTID
          |WHERE MRB.FSTOCKORGID IN ('1','481351') AND MRB.FDOCUMENTSTATUS = 'C'
-         |AND DS.fname IN ('海宁1号库','应急海宁1号库','应急海宁2号库','嘉峪关分仓','惠州分仓')
+         |AND DS.fname IN ('海宁1号库','应急海宁1号库','应急海宁2号库','嘉峪关分仓','惠州分仓') and MRB.FSTOCKORGID = MRB.FREQUIREORGID
          |""".stripMargin).createOrReplaceTempView("pur_return")
 
 
-    //ERP-销售出库单列表
+    //ERP-销售出库单列表  FISGENFORIOS 跨组织结算生成 0代表否  1代表是
     spark.sql(
       s"""
          |SELECT
@@ -174,12 +175,34 @@ object ReturnsBasedOnSalesOrders {
          |FROM
          |${TableName.ODS_ERP_OUTSTOCK} MRB
          |JOIN ${TableName.ODS_ERP_OUTSTOCKENTRY} MRBE ON MRB.FID = MRBE.FID
+         |JOIN ${TableName.ODS_ERP_OUTSTOCKFIN} MRBF ON MRB.FID = MRBF.FID
+         |JOIN ${TableName.ODS_ERP_OUTSTOCKENTRY_F} MRBEF ON MRBE.FENTRYID = MRBEF.FENTRYID
          |LEFT JOIN ${TableName.DIM_STOCK} DS ON MRBE.FSTOCKID = DS.FSTOCKID
          |LEFT JOIN ${TableName.DIM_MATERIAL} MAT ON MRBE.FMATERIALID = MAT.FMATERIALID
          |LEFT JOIN ${TableName.DIM_LOTMASTER} dl ON MRBE.FLOT = dl.FLOTID
          |WHERE MRB.FSTOCKORGID IN ('1','481351') AND MRB.FDOCUMENTSTATUS = 'C'
-         |AND DS.fname IN ('海宁1号库','应急海宁1号库','应急海宁2号库','嘉峪关分仓','惠州分仓')
+         |AND DS.fname IN ('海宁1号库','应急海宁1号库','应急海宁2号库','嘉峪关分仓','惠州分仓') AND MRBF.FISGENFORIOS = '0' AND MRBEF.FISOVERLEGALORG = '1'
          |""".stripMargin).createOrReplaceTempView("sal_out")
+
+    spark.sql(
+      s"""
+         |SELECT
+         |  MAT.fnumber, --物料编码
+         |  DL.fnumber FLOT, --批号
+         |  sum(oeie.FREALQTY) FREALQTY --实收数量
+         |FROM ${TableName.ODS_ERP_INSTOCK} oei
+         |LEFT JOIN ${TableName.ODS_ERP_INSTOCKFIN} oeif ON oei.FID = oeif.FID
+         |LEFT JOIN ${TableName.ODS_ERP_INSTOCKENTRY} oeie ON oei.FID = oeie.FID
+         |LEFT JOIN ${TableName.DIM_MATERIAL} MAT ON oeie.FMATERIALID = MAT.FMATERIALID
+         |LEFT JOIN ${TableName.DIM_LOTMASTER} dl ON oeie.FLOT = dl.FLOTID
+         |LEFT JOIN ${TableName.DIM_STOCK} DS ON oeie.FSTOCKID = DS.FSTOCKID
+         |WHERE
+         |oei.FSTOCKORGID IN ('1','481351')
+         |AND oei.FDOCUMENTSTATUS = 'C' and MAT.fnumber is not null and trim(MAT.fnumber) !='' and DL.fnumber is not null and trim(DL.fnumber) !=''
+         |AND DS.fname IN ('海宁1号库','应急海宁1号库','应急海宁2号库','嘉峪关分仓','惠州分仓') AND oeif.FISGENFORIOS = '0'
+         |group by MAT.fnumber,DL.fnumber
+         |""".stripMargin).createOrReplaceTempView("instock")
+
 
     //ERP-即时库存
     spark.sql(
@@ -199,24 +222,80 @@ object ReturnsBasedOnSalesOrders {
 
 
 
+    spark.sql(
+      s"""
+         |SELECT
+         |  RE.c_material_no,--物料编号
+         |  RE.c_flot_no,--批号
+         |  MAX(RE.c_actual_returnqty) c_actual_returnqty,--实退数量
+         |  MAX(RE.c_unit_costprice) c_unit_costprice,--成本单价
+         |  MAX(RE.c_actual_returnqty)*MAX(RE.c_unit_costprice) c_return_amount,--销售退回金额
+         |  SUM(PR.FRMREALQTY) c_actual_returnqty_cgth,--采购退货数量
+         |  ifnull(SUM(PR.FRMREALQTY),0)*MAX(RE.c_unit_costprice) c_return_amount_cgth , --采购退货金额
+         |  MAX(RE.c_approve_date) c_approve_date
+         |from
+         |res1 RE LEFT JOIN pur_return PR ON RE.c_material_no = PR.FNUMBER AND RE.c_flot_no = PR.flot
+         |GROUP BY c_material_no,c_flot_no
+         |""".stripMargin).createOrReplaceTempView("res_no1")
+
+    spark.sql(
+      s"""
+         |SELECT
+         |  RE.c_material_no,--物料编号
+         |  RE.c_flot_no,--批号
+         |  MAX(RE.c_actual_returnqty) c_actual_returnqty,--实退数量
+         |  MAX(RE.c_unit_costprice) c_unit_costprice,--成本单价
+         |  MAX(RE.c_return_amount) c_return_amount,--销售退回金额
+         |  MAX(RE.c_actual_returnqty_cgth) c_actual_returnqty_cgth,--采购退货数量
+         |  MAX(RE.c_return_amount_cgth) c_return_amount_cgth,--采购退货金额
+         |  sum(SO.FREALQTY) c_secondary_salesqty ,--二次销售数量
+         |  ifnull(sum(SO.FREALQTY),0)*MAX(RE.c_unit_costprice) c_secondary_salesprice, --二次销售金额
+         |  MAX(RE.c_approve_date) c_approve_date
+         |from
+         |res_no1 RE
+         |LEFT JOIN sal_out SO ON RE.c_material_no = SO.FNUMBER AND RE.c_flot_no = SO.flot
+         |group by RE.c_material_no,RE.c_flot_no
+         |""".stripMargin).createOrReplaceTempView("res_no2")
+
+    spark.sql(
+      s"""
+         |SELECT
+         |  RE.c_material_no,--物料编号
+         |  RE.c_flot_no,--批号
+         |  MAX(RE.c_actual_returnqty) c_actual_returnqty,--实退数量
+         |  MAX(RE.c_unit_costprice) c_unit_costprice,--成本单价
+         |  MAX(RE.c_return_amount) c_return_amount,--销售退回金额
+         |  MAX(RE.c_actual_returnqty_cgth) c_actual_returnqty_cgth,--采购退货数量
+         |  MAX(RE.c_return_amount_cgth) c_return_amount_cgth,--采购退货金额
+         |  MAX(RE.c_secondary_salesqty) c_secondary_salesqty,--二次销售数量
+         |  MAX(RE.c_secondary_salesprice) c_secondary_salesprice,--二次销售金额
+         |  sum(INS.FBASEQTY) c_stock_quantity,--在库数量
+         |  ifnull(sum(INS.FBASEQTY),0)*MAX(RE.c_unit_costprice) c_stock_price --在库金额
+         |from
+         |  res_no2 RE
+         |LEFT JOIN Instant INS ON RE.c_material_no = INS.FNUMBER AND RE.c_flot_no = INS.flot
+         |GROUP BY c_material_no,c_flot_no
+         |""".stripMargin).createOrReplaceTempView("res_no3")
+
     val result2 = spark.sql(
       s"""
          |SELECT
-         |RE.c_material_no,--物料编号
-         |RE.c_flot_no,--批号
-         |MAX(RE.c_actual_returnqty) c_actual_returnqty,--实退数量
-         |MAX(RE.c_unit_costprice) c_unit_costprice,--成本单价
-         |MAX(RE.c_actual_returnqty)*MAX(RE.c_unit_costprice) c_return_amount,--销售退回金额
-         |SUM(PR.FRMREALQTY) c_actual_returnqty_cgth,--采购退出数量
-         |ifnull(SUM(PR.FRMREALQTY),0)*MAX(RE.c_unit_costprice) c_return_amount_cgth,--采购退出金额
-         |sum(SO.FREALQTY) c_secondary_salesqty ,--二次销售数量
-         |ifnull(sum(SO.FREALQTY),0)*MAX(RE.c_unit_costprice) c_secondary_salesprice,--二次销售金额
-         |sum(INS.FBASEQTY) c_stock_quantity,--在库数量
-         |ifnull(sum(INS.FBASEQTY),0)*MAX(RE.c_unit_costprice) c_stock_price --在库金额
+         |  RE.c_material_no,--物料编号
+         |  RE.c_flot_no,--批号
+         |  MAX(RE.c_actual_returnqty) c_actual_returnqty,--实退数量
+         |  MAX(RE.c_unit_costprice) c_unit_costprice,--成本单价
+         |  MAX(RE.c_return_amount) c_return_amount,--销售退回金额
+         |  MAX(RE.c_actual_returnqty_cgth) c_actual_returnqty_cgth,--采购退货数量
+         |  MAX(RE.c_return_amount_cgth) c_return_amount_cgth,--采购退货金额
+         |  MAX(RE.c_secondary_salesqty) c_secondary_salesqty,--二次销售数量
+         |  MAX(RE.c_secondary_salesprice) c_secondary_salesprice,--二次销售金额
+         |  MAX(RE.c_stock_quantity) c_stock_quantity, --在库数量
+         |  MAX(RE.c_stock_price) c_stock_price, --在库金额
+         |  sum(OCK.FREALQTY) c_instock_qty,--入库数量
+         |  ifnull(sum(OCK.FREALQTY),0)*MAX(RE.c_unit_costprice) c_instock_amount --入库金额
          |from
-         |  res1 RE LEFT JOIN pur_return PR ON RE.c_material_no = PR.FNUMBER AND RE.c_flot_no = PR.flot AND RE.c_approve_date <= PR.FCREATEDATE
-         |LEFT JOIN sal_out SO ON RE.c_material_no = SO.FNUMBER AND RE.c_flot_no = SO.flot AND RE.c_approve_date <= SO.FAPPROVEDATE
-         |LEFT JOIN Instant INS ON RE.c_material_no = INS.FNUMBER AND RE.c_flot_no = INS.flot
+         |  res_no3 RE
+         |LEFT JOIN instock OCK ON RE.c_material_no = OCK.FNUMBER AND RE.c_flot_no = OCK.flot
          |GROUP BY c_material_no,c_flot_no
          |""".stripMargin)
 
