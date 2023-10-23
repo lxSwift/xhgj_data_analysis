@@ -33,20 +33,18 @@ object ceshi2 {
     spark.sql(
       s"""
          |SELECT
-         |  MRBE.FREALQTY,
-         |  MAT.FNUMBER,
-         |  dl.fnumber flot,
-         |  MRB.FAPPROVEDATE
+         |  MRB.FBILLNO c_billno,
+         |  MAT.FNUMBER c_material_no,
+         |  MRBE.FENTRYID
          |FROM
-         |${TableName.ODS_ERP_OUTSTOCK} MRB
-         |JOIN ${TableName.ODS_ERP_OUTSTOCKENTRY} MRBE ON MRB.FID = MRBE.FID
-         |JOIN ${TableName.ODS_ERP_OUTSTOCKFIN} MRBF ON MRB.FID = MRBF.FID
-         |LEFT JOIN ${TableName.DIM_STOCK} DS ON MRBE.FSTOCKID = DS.FSTOCKID
+         |${TableName.ODS_ERP_MRB_DA} MRB
+         |JOIN ${TableName.ODS_ERP_MRBENTRY_DA} MRBE ON MRB.FID = MRBE.FID
+         |LEFT JOIN ${TableName.ODS_ERP_MRBFIN_DA} MRBF ON MRB.FID = MRBF.FID
          |LEFT JOIN ${TableName.DIM_MATERIAL} MAT ON MRBE.FMATERIALID = MAT.FMATERIALID
-         |LEFT JOIN ${TableName.DIM_LOTMASTER} dl ON MRBE.FLOT = dl.FLOTID
-         |WHERE MRB.FSTOCKORGID IN ('1','481351') AND MRB.FDOCUMENTSTATUS = 'C'
-         |AND DS.fname IN ('海宁1号库','应急海宁1号库','应急海宁2号库','嘉峪关分仓','惠州分仓') AND MRBF.FISGENFORIOS = '0' and  dl.fnumber ='202012170595'
-         |""".stripMargin).show(10,false)
+         |LEFT JOIN ${TableName.DIM_ORGANIZATIONS} ORG ON MRB.FPURCHASEORGID = ORG.forgid
+         |WHERE ORG.fname IN ('万聚国际（杭州）供应链有限公司','杭州咸亨国际应急救援装备有限公司') AND MRB.FDOCUMENTSTATUS = 'C' and MRB.FBILLNO = 'CGTL005047'
+         |""".stripMargin).show(100,false)
+
 
 
 

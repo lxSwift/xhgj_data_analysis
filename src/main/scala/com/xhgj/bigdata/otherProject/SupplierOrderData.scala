@@ -27,6 +27,20 @@ object SupplierOrderData {
 
   def runRES(spark: SparkSession): Unit = {
 
+
+    //获取mpm表的数据
+    spark.sql(
+      s"""
+         |select
+         |  ch.c_code mcode, --物料（编码）
+         |  nvl(ec.c_name,'') examinename --考核类别（名称）
+         |from
+         |  ODS_XHGJ.ODS_MPM_CHILD ch
+         |left join ODS_XHGJ.ODS_MPM_EXAMINE_CATEGORY ec on ch.c_examine_category = ec.c_code
+         |WHERE (ch.c_category_two <> 'ea8ebef464c5c8c90164ca9e2bac0015'
+         |	OR ch.c_category_two IS NULL) and ch.c_code != ''
+         |""".stripMargin).createOrReplaceTempView("mpmmaterial")
+
     /**
      * FMANUALCLOSE 手工关闭：0否  1是
      * 采购组织：万聚国际（杭州）供应链有限公司、杭州咸亨国际应急救援装备有限公司
@@ -40,7 +54,7 @@ object SupplierOrderData {
          |  '' c_source_no, --源单编号
          |  OEP.FAPPROVEDATE c_approve_date , --审核日期
          |  MAT.fnumber c_material_no , --物料编码
-         |  F.FNAME AS c_assessment_category, --考核类别
+         |  MPM.examinename AS c_assessment_category, --考核类别
          |  OEPF.FAMOUNT_LC c_amount,--金额(本位币)
          |  DS.FNAME c_supplier_name , --供应商
          |  "采购订单" c_document_mark --单据标识
@@ -51,6 +65,7 @@ object SupplierOrderData {
          |LEFT JOIN ${TableName.DIM_CUST100501} F ON MAT.f_khr = F.FID
          |LEFT JOIN ${TableName.DIM_ORGANIZATIONS} ORG ON OEP.FPURCHASEORGID = ORG.forgid
          |LEFT JOIN ${TableName.DIM_SUPPLIER} DS ON OEP.FSUPPLIERID = DS.FSUPPLIERID
+         |LEFT JOIN mpmmaterial MPM ON MAT.fnumber = MPM.mcode
          |where ORG.fname IN ('万聚国际（杭州）供应链有限公司','杭州咸亨国际应急救援装备有限公司') and OEP.FDOCUMENTSTATUS = 'C' and OEP.FMANUALCLOSE = '0'
          |  and OEPE.fmrpterminatestatus = 'A'
          |""".stripMargin).createOrReplaceTempView("pur_order")
@@ -85,13 +100,13 @@ object SupplierOrderData {
          |  MRB.FAPPROVEDATE c_approve_date,
          |  MAT.FNUMBER c_material_no,
          |  '' c_assessment_category,
-         |  MRBF.FBILLAMOUNT_LC c_amount,
+         |  MRBF.FAMOUNT_LC c_amount,
          |  '' c_supplier_name,
          |  '采购退货' c_document_mark
          |FROM
          |${TableName.ODS_ERP_MRB_DA} MRB
          |JOIN ${TableName.ODS_ERP_MRBENTRY_DA} MRBE ON MRB.FID = MRBE.FID
-         |LEFT JOIN ${TableName.ODS_ERP_MRBFIN_DA} MRBF ON MRB.FID = MRBF.FID
+         |LEFT JOIN ${TableName.ODS_ERP_MRBENTRY_F_DA} MRBF ON MRBE.FENTRYID = MRBF.FENTRYID
          |LEFT JOIN ${TableName.ODS_ERP_MRBENTRY_LK_DA} MRBEL ON MRBE.FENTRYID = MRBEL.FENTRYID
          |LEFT JOIN pur_instock PUR ON MRBEL.FSBILLID = PUR.FID and MRBEL.FSID = PUR.FENTRYID
          |LEFT JOIN ${TableName.DIM_MATERIAL} MAT ON MRBE.FMATERIALID = MAT.FMATERIALID
