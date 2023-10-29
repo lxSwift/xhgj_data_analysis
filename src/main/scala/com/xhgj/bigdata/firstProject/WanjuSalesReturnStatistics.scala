@@ -54,6 +54,7 @@ object WanjuSalesReturnStatistics {
          |LEFT JOIN ${TableName.ODS_ERP_INSTOCKENTRY_F} oeif ON oeif.FENTRYID = oeie.FENTRYID
          |LEFT JOIN ${TableName.DIM_MATERIAL} MAT ON oeie.FMATERIALID = MAT.FMATERIALID
          |LEFT JOIN ${TableName.DIM_LOTMASTER} dl ON oeie.FLOT = dl.FLOTID
+         |where oei.FSTOCKORGID IN ('1') AND oeie.FSTOCKFLAG = '1'
          |group by MAT.fnumber,DL.fnumber
          |""".stripMargin).createOrReplaceTempView("INSTOCK")
 
@@ -101,11 +102,13 @@ object WanjuSalesReturnStatistics {
          |  DSO.F_PAEZ_TEXT1 c_saler_company, --销售员所属公司
          |  INS.FCOSTPRICE_LC c_unit_costprice, --成本单价
          |  case when ORGA.fname = '万聚国际（杭州）供应链有限公司' then OEREF.FPRICE
-         |    else opo.FPRICE end as c_sale_unitprice --单价
+         |    else opo.FPRICE end as c_sale_unitprice, --单价
+         |  OERER.FSRCBILLNO --源单编号
          |from
          |  ${TableName.ODS_ERP_RETURNSTOCK} OER
          |LEFT JOIN ${TableName.ODS_ERP_RETURNSTOCKENTRY} OERE ON OER.FID  = OERE.FID
          |LEFT JOIN ${TableName.ODS_ERP_RETURNSTOCKENTRY_F} OEREF ON OERE.FENTRYID  = OEREF.FENTRYID
+         |LEFT JOIN ${TableName.ODS_ERP_RETURNSTOCKENTRY_R} OERER ON OERE.FENTRYID  = OERER.FENTRYID
          |LEFT JOIN ${TableName.DIM_STOCK} DS ON OERE.FSTOCKID = DS.FSTOCKID
          |LEFT JOIN salorder DSO ON OERE.F_PAEZ_TEXT = DSO.fbillno
          |LEFT JOIN ${TableName.DIM_MATERIAL} MAT ON OERE.FMATERIALID = MAT.FMATERIALID
