@@ -61,7 +61,7 @@ object WanjuHainingWarehouseStock {
          |group by MAT.fnumber,LOT.fnumber
          |""".stripMargin).createOrReplaceTempView("RETURNSTOCK")
 
-    //ERP-直接调拨单列表
+    //ERP-直接调拨单列表(取调入仓库) 库存调入标识为是
     spark.sql(
       s"""
          |SELECT
@@ -71,11 +71,11 @@ object WanjuHainingWarehouseStock {
          |FROM
          |${TableName.ODS_ERP_STKTRANSFERIN_DA} MRB
          |JOIN ${TableName.ODS_ERP_STKTRANSFERINENTRY_DA} MRBE ON MRB.FID = MRBE.FID
-         |LEFT JOIN ${TableName.DIM_STOCK} DS ON MRBE.FSRCSTOCKID = DS.FSTOCKID
+         |LEFT JOIN ${TableName.DIM_STOCK} DS ON MRBE.FDESTSTOCKID = DS.FSTOCKID
          |LEFT JOIN ${TableName.DIM_MATERIAL} MAT ON MRBE.FSRCMATERIALID = MAT.FMATERIALID
          |LEFT JOIN ${TableName.DIM_LOTMASTER} dl ON MRBE.FLOT = dl.FLOTID
          |WHERE  MRB.FDOCUMENTSTATUS = 'C'
-         |AND DS.fname = '海宁1号库' and MRBE.FSTOCKOUTFLAG = '1'
+         |AND DS.fname = '海宁1号库' and MRBE.FSTOCKINFLAG = '1'
          |GROUP BY MAT.fnumber,dl.fnumber
          |""".stripMargin).createOrReplaceTempView("STKTRANSFERIN")
 
@@ -129,6 +129,25 @@ object WanjuHainingWarehouseStock {
          |AND DS.fname = '海宁1号库'
          |GROUP BY MAT.fnumber,dl.fnumber
          |""".stripMargin).createOrReplaceTempView("stkcountgain")
+
+    //初始库存表
+    spark.sql(
+      s"""
+         |SELECT
+         |  min(MRB.FAPPROVEDATE) c_approve_date, --审核日期
+         |  MAT.FNUMBER c_material_no,
+         |  dl.fnumber c_flot_no
+         |FROM
+         |${TableName.ODS_ERP_STKINVINIT_DA} MRB
+         |JOIN ${TableName.ODS_ERP_STKINVINITDETAIL_DA} MRBE ON MRB.FID = MRBE.FID
+         |LEFT JOIN ${TableName.DIM_STOCK} DS ON MRBE.FSTOCKID = DS.FSTOCKID
+         |LEFT JOIN ${TableName.DIM_MATERIAL} MAT ON MRBE.FMATERIALID = MAT.FMATERIALID
+         |LEFT JOIN ${TableName.DIM_LOTMASTER} dl ON MRBE.FLOT = dl.FLOTID
+         |WHERE  MRB.FDOCUMENTSTATUS = 'C'
+         |AND DS.fname = '海宁1号库'
+         |GROUP BY MAT.fnumber,dl.fnumber
+         |""".stripMargin).createOrReplaceTempView("STKINVINIT")
+
 
     //采购入库  最早审核日期入库单据的供应商
     spark.sql(
@@ -329,7 +348,7 @@ object WanjuHainingWarehouseStock {
          |  A.c_procure_department,--采购部门
          |  A.c_stock_num,--库存量(主单位)
          |  A.c_available_num, --可用量(主单位)
-         |  LEAST(ins.c_approve_date,ret.c_approve_date,stk.c_approve_date,ass.c_approve_date,dea.c_approve_date,aga.c_approve_date) c_approve_date, --审核日期
+         |  LEAST(ins.c_approve_date,ret.c_approve_date,stk.c_approve_date,ass.c_approve_date,dea.c_approve_date,aga.c_approve_date,INV.c_approve_date) c_approve_date, --审核日期
          |  A.c_supplier_name
          |FROM
          |  res1 A
@@ -339,6 +358,7 @@ object WanjuHainingWarehouseStock {
          |left join ASSEMBLY_M ass on A.c_material_code = ass.c_material_no and A.c_flot_no = ass.c_flot_no
          |left join DEASSEMBLY dea on A.c_material_code = dea.c_material_no and A.c_flot_no = dea.c_flot_no
          |left join stkcountgain aga on A.c_material_code = aga.c_material_no and A.c_flot_no = aga.c_flot_no
+         |left join STKINVINIT INV on A.c_material_code = INV.c_material_no and A.c_flot_no = INV.c_flot_no
          |""".stripMargin).createOrReplaceTempView("res2")
 
     val result = spark.sql(

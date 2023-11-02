@@ -96,6 +96,7 @@ object PipeNetworkOrder {
          |group by subquery.fbillno,DS.FNAME,subquery.CUSTOMERORDERID,subquery.FCREATEDATE
          |""".stripMargin).createOrReplaceTempView("bigproject2")
 
+
     spark.sql(
       s"""
          |SELECT
@@ -171,6 +172,21 @@ object PipeNetworkOrder {
          |GROUP BY DP.FNUMBER
          |""".stripMargin).createOrReplaceTempView("refund")
 
+    spark.sql(
+      s"""
+         |select
+         |	DP.fnumber PRONO,
+         | CAST(SUM(OERE.FPRICEQTY * OERE.FTAXPRICE) AS INT) AS SALETAXAMOUNT --含税金额
+         |from
+         |	${TableName.ODS_ERP_RECEIVABLE} a
+         |join ${TableName.ODS_ERP_RECEIVABLEENTRY} OERE on a.fid=OERE.fid
+         |left join ${TableName.DIM_PROJECTBASIC} DP on OERE.FPROJECTNO=DP.fid
+         |left join ${TableName.DIM_ORGANIZATIONS} org on org.forgid=a.FSETTLEORGID
+         |where a.FDOCUMENTSTATUS='C' AND org.fname ='DP咸亨国际科技股份有限公司'
+         |group by DP.fnumber
+         |having SALETAXAMOUNT = 0
+         |""".stripMargin).createOrReplaceTempView("need1")
+
     //最终汇总
 
     val result = spark.sql(
@@ -199,6 +215,8 @@ object PipeNetworkOrder {
          |left join bigrece D on B.fbillno = D.PRONO
          |left join payment E on B.fbillno = E.FNUMBER
          |left join refund F on B.fbillno = F.FNUMBER
+         |left join need1 nn on B.fbillno = nn.PRONO
+         |where nn.PRONO is null
          |""".stripMargin)
 
     print("num=========" + result.count())

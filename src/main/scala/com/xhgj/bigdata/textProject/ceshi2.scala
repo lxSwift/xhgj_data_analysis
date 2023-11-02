@@ -30,21 +30,23 @@ object ceshi2 {
   def runRES(spark: SparkSession)={
 
     //FISOVERLEGALORG组织间结算跨法人标识 为1 代表是   0代表否
-    spark.sql(
+    val result = spark.sql(
       s"""
-         |SELECT
-         |  MAT.FNUMBER c_material_code,--物料编码
-         |  dl.fnumber c_flot_no, --批号
-         |  MRB.*
-         |FROM
-         |${TableName.ODS_ERP_INVENTORY_DA} MRB
-         |LEFT JOIN ${TableName.DIM_STOCK} DS ON MRB.FSTOCKID = DS.FSTOCKID
-         |LEFT JOIN ${TableName.DIM_MATERIAL} MAT ON MRB.FMATERIALID = MAT.FMATERIALID
-         |LEFT JOIN ${TableName.DIM_LOTMASTER} dl ON MRB.FLOT = dl.FLOTID
-         |WHERE DS.fname = '海宁1号库' AND MAT.FNUMBER = 'BE030129' AND dl.fnumber = '202104060289'
-         |""".stripMargin).show(10,false)
+         |select
+         |	DP.fnumber PRONO,
+         | CAST(SUM(OERE.FPRICEQTY * OERE.FTAXPRICE) AS INT) AS SALETAXAMOUNT --含税金额
+         |from
+         |	${TableName.ODS_ERP_RECEIVABLE} a
+         |join ${TableName.ODS_ERP_RECEIVABLEENTRY} OERE on a.fid=OERE.fid
+         |left join ${TableName.DIM_PROJECTBASIC} DP on OERE.FPROJECTNO=DP.fid
+         |left join ${TableName.DIM_ORGANIZATIONS} org on org.forgid=a.FSETTLEORGID
+         |where a.FDOCUMENTSTATUS='C' AND org.fname ='DP咸亨国际科技股份有限公司'
+         |group by DP.fnumber
+         |having SALETAXAMOUNT = 0
+         |""".stripMargin)
+    println("res========="+result.count())
 
-
+    result.show(100,false)
 
 
   }
