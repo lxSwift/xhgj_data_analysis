@@ -1,7 +1,7 @@
 package com.xhgj.bigdata.otherProject
 
 import com.xhgj.bigdata.util.{AddressAnalysis, MysqlConnect, TableName}
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 /**
  * @Author luoxin
@@ -189,7 +189,7 @@ object PipeNetworkOrder {
 
     //最终汇总
 
-    val result = spark.sql(
+    val result: DataFrame = spark.sql(
       s"""
          |select
          |  A.c_order_time,
@@ -218,10 +218,44 @@ object PipeNetworkOrder {
          |left join need1 nn on B.fbillno = nn.PRONO
          |where nn.PRONO is null
          |""".stripMargin)
-
     print("num=========" + result.count())
     val table = "ads_oth_pipenetwork"
     MysqlConnect.overrideTable(table, result)
+
+    //获取管网的小票应收单的明细信息
+    result.createOrReplaceTempView("nnee")
+
+    val res = spark.sql(
+      s"""
+         |select
+         |	DP.fnumber c_project_no,
+         | dm.fnumber c_material_code,
+         |  ENT.FNAME c_material_brand,--品牌
+         |  dm.fname c_material_name,
+         |  dm.FSPECIFICATION c_specification, --规格型号
+         |  dun.fname c_unit, --单位
+         |  OERE.FTAXPRICE c_fpricetax_unit, --含税单价
+         |  OERE.FPRICEQTY c_quantity, --数量
+         | CAST((case when DP.FBEHALFINVOICERATIO is not null and TRIM(DP.FBEHALFINVOICERATIO) != '' and TRIM(DP.FBEHALFINVOICERATIO) != 0 then OERE.FPRICEQTY * OERE.FTAXPRICE/DP.FBEHALFINVOICERATIO*100
+         | else OERE.FPRICEQTY * OERE.FTAXPRICE end) AS DECIMAL(19,2)) AS c_saletaxamount , --含税金额
+         |  OES.F_PAEZ_TEXT2 c_address , --收货地址
+         |  OES.f_paez_text c_consignee , --收货人
+         |  OES.F_PAEZ_TEXT1 c_phone_no --联系人电话
+         |from
+         |	${TableName.ODS_ERP_RECEIVABLE} a
+         |join ${TableName.ODS_ERP_RECEIVABLEENTRY} OERE on a.fid=OERE.fid
+         |left join ${TableName.DIM_PROJECTBASIC} DP on OERE.FPROJECTNO=DP.fid
+         |left join ${TableName.DIM_ORGANIZATIONS} org on org.forgid=a.FSETTLEORGID
+         |left join ${TableName.DIM_MATERIAL} dm on OERE.fmaterialid = dm.fmaterialid
+         |LEFT JOIN ${TableName.DIM_PAEZ_ENTRY100020} ENT ON dm.F_PAEZ_BASE=ENT.fid
+         |left join ${TableName.DIM_UNIT} dun on OERE.FPRICEUNITID = dun.funitid
+         |LEFT JOIN ${TableName.ODS_ERP_SALORDER} OES ON IF(OERE.F_PAEZ_Text='',0,OERE.F_PAEZ_Text) = OES.FBILLNO
+         |left join nnee nn on DP.fnumber = nn.c_project_no
+         |where a.FDOCUMENTSTATUS='C' AND org.fname in ('咸亨国际科技股份有限公司','武汉咸亨国际能源科技有限公司') and nn.c_project_no is not null
+         |""".stripMargin)
+
+    val table2 = "ads_oth_pipenetworkentry"
+    MysqlConnect.overrideTable(table2, res)
 
   }
 
@@ -229,4 +263,5 @@ object PipeNetworkOrder {
   def addressget(infoadd: String) = {
     AddressAnalysis.provincesMatch(infoadd)
   }
+
 }
