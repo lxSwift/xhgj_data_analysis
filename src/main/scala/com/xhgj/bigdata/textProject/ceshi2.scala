@@ -30,19 +30,19 @@ object ceshi2 {
   def runRES(spark: SparkSession)={
 
     //FISOVERLEGALORG组织间结算跨法人标识 为1 代表是   0代表否
-    val result = spark.sql(
+//    val result = spark.sql(
+//      s"""
+//         |SELECT *
+//         |FROM ${TableName.ODS_ERP_STKINVINITDETAIL_DA} limit 10
+//         |""".stripMargin)
+//    println("res========="+result.count())
+  val result = spark.sql(
       s"""
-         |select
-         |	DP.fnumber PRONO,
-         | CAST(SUM(OERE.FPRICEQTY * OERE.FTAXPRICE) AS INT) AS SALETAXAMOUNT --含税金额
-         |from
-         |	${TableName.ODS_ERP_RECEIVABLE} a
-         |join ${TableName.ODS_ERP_RECEIVABLEENTRY} OERE on a.fid=OERE.fid
-         |left join ${TableName.DIM_PROJECTBASIC} DP on OERE.FPROJECTNO=DP.fid
-         |left join ${TableName.DIM_ORGANIZATIONS} org on org.forgid=a.FSETTLEORGID
-         |where a.FDOCUMENTSTATUS='C' AND org.fname ='DP咸亨国际科技股份有限公司'
-         |group by DP.fnumber
-         |having SALETAXAMOUNT = 0
+         |SELECT
+         |  dp.fnumber
+         |from ${TableName.DWD_SAL_ORDER} oes
+         |left join ${TableName.DIM_PROJECTBASIC} dp on oes.F_PROJECTNO  = dp.fid
+         |where oes.fbillno='XSDD2023448661'
          |""".stripMargin)
     println("res========="+result.count())
 

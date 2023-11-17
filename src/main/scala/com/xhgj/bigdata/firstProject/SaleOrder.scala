@@ -78,9 +78,11 @@ object SaleOrder {
          | 	when oes.fdocumentstatus = 'D' then '重新审核'
          | 	else oes.fdocumentstatus end as varchar(32)) as documentstatus,
          | oesee.FSTOCKBASESTOCKOUTQTY,
-         | org.fname SALEORGNAME
+         | org.fname SALEORGNAME,
+         | OES2.FNOTE c_notes,
+         | dp.FBEHALFINVOICERATIO c_behalfinvoice_ratio --代开比率
          |from ${TableName.DWD_SAL_ORDER} oes
-         |left join ${TableName.DIM_PROJECTBASIC} dp on oes.fprojectbasic  = dp.fid
+         |left join ${TableName.DIM_PROJECTBASIC} dp on oes.F_PROJECTNO  = dp.fid
          |left join ${TableName.ODS_ERP_BIGTICKETPROJECT} big on dp.fnumber = big.fbillno
          |left join ${TableName.DIM_ORGANIZATIONS} org on oes.FSALEORGID = org.forgid
          |left join ${TableName.DIM_USER} du on oes.FCREATORID = du.fuserid
@@ -90,6 +92,7 @@ object SaleOrder {
          |left join ${TableName.DIM_MATERIAL} dm on oes.fmaterialid = dm.fmaterialid
          |left join ${TableName.DIM_CUSTOMER} dc on oes.fcustid = dc.fcustid
          |left join ${TableName.ODS_ERP_SALORDERENTRY_E} oesee on oes.fentryid = oesee.fentryid
+         |left join ${TableName.ODS_ERP_SALORDER} OES2 on oes.FID = OES2.FID
          |where COALESCE(oes.FORDERTYPE,0) <> 1
          |""".stripMargin)
     println(res.count())

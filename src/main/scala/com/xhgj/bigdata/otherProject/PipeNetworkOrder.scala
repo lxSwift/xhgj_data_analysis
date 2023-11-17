@@ -225,6 +225,14 @@ object PipeNetworkOrder {
     //获取管网的小票应收单的明细信息
     result.createOrReplaceTempView("nnee")
 
+    spark.sql(
+      s"""
+         |select
+         |c_project_no
+         |from nnee
+         |group by c_project_no
+         |""".stripMargin).createOrReplaceTempView("for_no")
+
     val res = spark.sql(
       s"""
          |select
@@ -234,13 +242,16 @@ object PipeNetworkOrder {
          |  dm.fname c_material_name,
          |  dm.FSPECIFICATION c_specification, --规格型号
          |  dun.fname c_unit, --单位
-         |  OERE.FTAXPRICE c_fpricetax_unit, --含税单价
+         |  CAST((case when DP.FBEHALFINVOICERATIO is not null and TRIM(DP.FBEHALFINVOICERATIO) != '' and TRIM(DP.FBEHALFINVOICERATIO) != 0 then OERE.FTAXPRICE/DP.FBEHALFINVOICERATIO*100
+         |  else OERE.FTAXPRICE end) AS DECIMAL(19,10)) AS c_fpricetax_unit, --含税单价
          |  OERE.FPRICEQTY c_quantity, --数量
          | CAST((case when DP.FBEHALFINVOICERATIO is not null and TRIM(DP.FBEHALFINVOICERATIO) != '' and TRIM(DP.FBEHALFINVOICERATIO) != 0 then OERE.FPRICEQTY * OERE.FTAXPRICE/DP.FBEHALFINVOICERATIO*100
-         | else OERE.FPRICEQTY * OERE.FTAXPRICE end) AS DECIMAL(19,2)) AS c_saletaxamount , --含税金额
+         | else OERE.FPRICEQTY * OERE.FTAXPRICE end) AS DECIMAL(19,10)) AS c_saletaxamount , --含税金额
          |  OES.F_PAEZ_TEXT2 c_address , --收货地址
          |  OES.f_paez_text c_consignee , --收货人
-         |  OES.F_PAEZ_TEXT1 c_phone_no --联系人电话
+         |  OES.F_PAEZ_TEXT1 c_phone_no, --联系人电话
+         |  OERE.F_PAEZ_Text c_salorder_no, --销售订单号
+         |  a.FAPPROVEDATE c_approve_date --审核日期
          |from
          |	${TableName.ODS_ERP_RECEIVABLE} a
          |join ${TableName.ODS_ERP_RECEIVABLEENTRY} OERE on a.fid=OERE.fid
@@ -250,7 +261,7 @@ object PipeNetworkOrder {
          |LEFT JOIN ${TableName.DIM_PAEZ_ENTRY100020} ENT ON dm.F_PAEZ_BASE=ENT.fid
          |left join ${TableName.DIM_UNIT} dun on OERE.FPRICEUNITID = dun.funitid
          |LEFT JOIN ${TableName.ODS_ERP_SALORDER} OES ON IF(OERE.F_PAEZ_Text='',0,OERE.F_PAEZ_Text) = OES.FBILLNO
-         |left join nnee nn on DP.fnumber = nn.c_project_no
+         |left join for_no nn on DP.fnumber = nn.c_project_no
          |where a.FDOCUMENTSTATUS='C' AND org.fname in ('咸亨国际科技股份有限公司','武汉咸亨国际能源科技有限公司') and nn.c_project_no is not null
          |""".stripMargin)
 
