@@ -29,9 +29,9 @@ object WordCount {
         val str4: Seq[Int] = (1 to wordPerMessage2).map(x => scala.util.Random.nextInt(35) + 1)
         val str5 = (1 to 2).map(x =>scala.util.Random.nextInt(12) + 1).toString()
 
-        val str6 = str4.appended(str5)
+//        val str6 = str4.appended(str5)
         val str7 = str4.mkString(" ") //separate str1 with space
-        println(str6)
+//        println(str6)
       }
       }
       i = i + 1
