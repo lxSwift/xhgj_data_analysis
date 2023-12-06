@@ -10,7 +10,7 @@ package com.xhgj.bigdata.util
  */
 object AddressAnalysis {
   //根据地址值,来匹配他的省份(有些地址有省份有些只有市名称,所以需要一下参数处理)
-  def provincesMatch(info: String) = {
+  def provincesMatch(info: String): String = {
     val provinces = List(
       "北京市", "天津市", "河北省", "山西省", "内蒙古", "辽宁省", "吉林省",
       "黑龙江省", "上海市", "江苏省", "浙江省", "安徽省", "福建省", "江西省",
@@ -88,13 +88,13 @@ object AddressAnalysis {
       if (city_res.isEmpty) {
         ""
       } else {
-        val res = outputProvince(city_res(0))
+        val res = outputProvince(city_res.head)
         res
       }
     } else {
-      val matches_str = matches(0)
-//      //标准化输出省份信息
-//      val end_pro = provinces.filter(province => province.contains(matches_str))(0)
+      val matches_str = matches.head
+      //      //标准化输出省份信息
+      //      val end_pro = provinces.filter(province => province.contains(matches_str))(0)
 
       matches_str
     }

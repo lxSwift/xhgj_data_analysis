@@ -93,7 +93,7 @@ object SaleOrder {
          |left join ${TableName.DIM_CUSTOMER} dc on oes.fcustid = dc.fcustid
          |left join ${TableName.ODS_ERP_SALORDERENTRY_E} oesee on oes.fentryid = oesee.fentryid
          |left join ${TableName.ODS_ERP_SALORDER} OES2 on oes.FID = OES2.FID
-         |where COALESCE(oes.FORDERTYPE,0) <> 1
+         |where COALESCE(oes.FORDERTYPE,0) <> 1 or oes.FORDERTYPE = ''
          |""".stripMargin)
     println(res.count())
 

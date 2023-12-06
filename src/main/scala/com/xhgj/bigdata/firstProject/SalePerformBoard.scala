@@ -105,7 +105,7 @@ object SalePerformBoard {
 
   }
 
-  def addressget(infoadd:String) = {
+  def addressget(infoadd:String): String = {
     AddressAnalysis.provincesMatch(infoadd)
   }
 

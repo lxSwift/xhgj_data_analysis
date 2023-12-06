@@ -22,31 +22,32 @@ object ceshi {
 
   def runRES(spark: SparkSession)= {
     /**
-     * 获取手工的2022-12-31日期以前的已开票应收款余额
+     * 获取手工的2022-12-31日期以前的已开票应收款余额 FLOT
      */
     val sc = spark.sparkContext
-    PathUtil.deleteExistedPath(sc,"/data/file/instock")
+    PathUtil.deleteExistedPath(sc,"/data/file/test")
 
     spark.sql(
       s"""
-         |SELECT oes.fnumber,
-         |  dun.fname c_unit
-         | FROM ${TableName.DIM_MATERIAL} oes
-         |LEFT JOIN ${TableName.ODS_ERP_MATERIALBASE_DA} OESE ON oes.FMATERIALID = OESE.FMATERIALID
-         |left join ${TableName.DIM_UNIT} dun on OESE.FBASEUNITID = dun.funitid
-         |""".stripMargin).createOrReplaceTempView("tmp1")
+         |select
+         |  INSE.F_PAEZ_TEXT,
+         |  MAT.fnumber c_material_no, --物料编码
+         |  if(COALESCE(INSE.FREALQTY,0) != '0' or trim(INSE.FREALQTY) != '',COALESCE(oeif.FALLAMOUNT_LC,0) / INSE.FREALQTY,0) FALLAMOUNT_LC, --含税单价
+         |  if(COALESCE(INSE.FREALQTY,0) != '0' or trim(INSE.FREALQTY) != '',COALESCE(oeif.FAMOUNT_LC,0) / INSE.FREALQTY,0) FAMOUNT_LC, --除税单价
+         |  sup.fname c_supplier_name, --供应商名称
+         |  dl.fnumber FLOT --批号
+         |from
+         |${TableName.ODS_ERP_INSTOCK} INS
+         |JOIN ${TableName.ODS_ERP_INSTOCKENTRY} INSE on INS.fid = INSE.fid
+         |left join ${TableName.ODS_ERP_INSTOCKENTRY_F} oeif ON INSE.FENTRYID = oeif.FENTRYID
+         |LEFT JOIN ${TableName.DIM_MATERIAL} MAT ON INSE.FMATERIALID = MAT.FMATERIALID
+         |LEFT JOIN ${TableName.DIM_LOTMASTER} dl ON INSE.FLOT = dl.FLOTID
+         |left join ${TableName.DIM_ORGANIZATIONS} org on INS.FSTOCKORGID=org.forgid
+         |left join ${TableName.DIM_SUPPLIER} sup on INS.FSUPPLIERID = sup.fsupplierid
+         |WHERE org.fname = '万聚国际（杭州）供应链有限公司' and INS.FDOCUMENTSTATUS = 'C'
+         |and INS.FAPPROVEDATE >= '2022-01-01'
+         |""".stripMargin).coalesce(1).write.csv("/data/file/test")
 
-    MysqlConnect.getMysqlData("ads_oth_material",spark).createOrReplaceTempView("tmp2")
-
-    spark.sql(
-      s"""
-         |SELECT
-         |a.fnumber,
-         |a.c_unit,
-         |b.unname
-         |FROM tmp1 a left join tmp2 b on a.fnumber = b.mcode
-         | where a.c_unit != b.unname
-         |""".stripMargin).coalesce(1).write.csv("/data/file/instock")
 
 
 //      .coalesce(1).write.csv("/data/file/instock")
