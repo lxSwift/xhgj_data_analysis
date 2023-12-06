@@ -38,7 +38,7 @@ object InvoicingStatus {
      *
      * 未开票：
      * 开票金额≤0
-     *
+     *注释
      * 添加应收单最新的发票日期F_PXDF_DATE
      */
 
