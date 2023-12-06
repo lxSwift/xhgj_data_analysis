@@ -1,9 +1,11 @@
 package com.xhgj.bigdata.firstProject
 
-import com.xhgj.bigdata.util.{Config, TableName}
+import com.xhgj.bigdata.util.MysqlConnect.{props, url}
+import com.xhgj.bigdata.util.{Config, MysqlConnect, TableName}
+import org.apache.spark.sql.functions.{col, regexp_replace}
+import org.apache.spark.sql.{SaveMode, SparkSession}
 
-import org.apache.spark.sql.SparkSession
-import java.sql.Types.{VARCHAR,DECIMAL,INTEGER}
+import java.sql.Types.{DECIMAL, INTEGER, VARCHAR}
 import java.util.Properties
 
 /**
@@ -96,6 +98,7 @@ object SaleOrder {
          |where COALESCE(oes.FORDERTYPE,0) <> 1
          |""".stripMargin)
     println(res.count())
+//    val result= res.withColumn("note", regexp_replace(col("note"), "[\\x00-\\x1F\\x7F]", ""))
 
     // 定义 MySQL 的连接信息
     val conf = Config.load("config.properties")
@@ -116,6 +119,7 @@ object SaleOrder {
       .option("createTableColumnTypes", "createdate varchar(32),projectname varchar(1000),projectno varchar(255),customerorderid varchar(1500),salescompany varchar(255),salesdept varchar(128),createuser varchar(64),salename varchar(64),operatorname varchar(64),materialno varchar(128),brand varchar(255),materialname varchar(500),specification varchar(500),qty decimal(19,4),taxprice decimal(19,4),allamount decimal(19,4),consignee varchar(64),contactphone varchar(64),shppingaddress varchar(500),isinternalcustomer varchar(32),purtype varchar(32),mrpterminatestatus varchar(32),isdx varchar(32),performanceform varchar(32) ,unitname varchar(64),note varchar(1000),saleorderno varchar(128),bill_type varchar(32),documentstatus varchar(32),fstockbasestockoutqty INT,SALEORGNAME varchar(256)")// 明确指定 MySQL 数据库中字段的数据类型
       .option("batchsize", "10000")
       .option("truncate", "false")
+      .option("createTableOptions", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci")
       .option("jdbcType", s"createdate=${VARCHAR},projectname=${VARCHAR},projectno=${VARCHAR},salescompany=${VARCHAR},salesdept=${VARCHAR},createuser=${VARCHAR},salename=${VARCHAR},operatorname=${VARCHAR},materialno=${VARCHAR},brand=${VARCHAR},materialname=${VARCHAR}},specification=${VARCHAR}},qty=${DECIMAL},taxprice=${DECIMAL},allamount=${DECIMAL},consignee=${VARCHAR},contactphone=${VARCHAR},shppingaddress=${VARCHAR},isinternalcustomer=${VARCHAR},purtype=${VARCHAR},mrpterminatestatus=${VARCHAR},isdx=${VARCHAR},performanceform=${VARCHAR},unitname=${VARCHAR},note=${VARCHAR},saleorderno=${VARCHAR},bill_type=${VARCHAR},documentstatus=${VARCHAR},fstockbasestockoutqty =${INTEGER},SALEORGNAME=${VARCHAR}")   // 显式指定 SparkSQL 中的数据类型和 MySQL 中的映射关系
       .jdbc(url, table, props)
   }

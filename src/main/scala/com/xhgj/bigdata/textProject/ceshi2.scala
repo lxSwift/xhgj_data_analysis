@@ -36,17 +36,17 @@ object ceshi2 {
 //         |FROM ${TableName.ODS_ERP_STKINVINITDETAIL_DA} limit 10
 //         |""".stripMargin)
 //    println("res========="+result.count())
-  val result = spark.sql(
-      s"""
-         |SELECT
-         |  dp.fnumber
-         |from ${TableName.DWD_SAL_ORDER} oes
-         |left join ${TableName.DIM_PROJECTBASIC} dp on oes.F_PROJECTNO  = dp.fid
-         |where oes.fbillno='XSDD2023448661'
-         |""".stripMargin)
-    println("res========="+result.count())
-
-    result.show(100,false)
+val res = spark.sql(
+  s"""
+     |select cast (oes.fcreatedate as varchar(32)) as createdate,
+     | cast(oes.fqty as decimal(19,4)) as qty,
+     | cast(oes.f_paez_text as varchar(64)) as consignee,
+     | cast(oes.f_paez_text1 as varchar(64))  as contactphone,
+     | cast(oes.f_paez_text2 as varchar(500)) as shppingaddress
+     |from ${TableName.DWD_SAL_ORDER} oes
+     |where COALESCE(oes.FORDERTYPE,0) <> 1
+     |""".stripMargin)
+    println(res.count())
 
 
   }
